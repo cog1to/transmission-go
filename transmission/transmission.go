@@ -1,0 +1,236 @@
+package transmission
+
+import (
+  "net/http"
+  "encoding/json"
+  "bytes"
+  "fmt"
+  "io/ioutil"
+)
+
+type Requester interface {
+  ToRequest() (*http.Request, error)
+}
+
+type Connection struct {
+  Host string
+  Port int32
+}
+
+type TRequest struct {
+  Connection Connection
+  Method string
+  Token string
+  Arguments interface{}
+}
+
+func (request TRequest) ToRequest() (*http.Request, error) {
+  var body = make(map[string]interface{})
+  if request.Method != "" {
+    body["method"] = request.Method
+  }
+  if request.Arguments != nil {
+    body["arguments"] = request.Arguments
+  }
+
+  byteData, err := json.Marshal(body)
+  if err != nil {
+    return nil, err
+  }
+  reader := bytes.NewBuffer(byteData)
+
+  req, err := http.NewRequest(
+    "POST",
+    fmt.Sprintf("http://%s:%d/transmission/rpc/", request.Connection.Host, request.Connection.Port),
+    reader)
+
+  if err != nil {
+    return nil, err
+  }
+
+  if request.Token != "" {
+    req.Header.Add("X-Transmission-Session-Id", request.Token)
+  }
+
+  return req, nil
+}
+
+func Execute(req *Requester) (*[]byte, string, error) {
+  httpReq, err := (*req).ToRequest()
+  if err != nil {
+    return nil, "", err
+  }
+
+  httpClient := &http.Client{}
+  response, err := httpClient.Do(httpReq)
+
+  if err != nil {
+    return nil, "", err
+  }
+
+  defer response.Body.Close()
+  body, err := ioutil.ReadAll(response.Body)
+
+  var sessionId string
+  if header, present := response.Header["X-Transmission-Session-Id"]; present {
+    sessionId = header[0]
+  }
+
+  return &body, sessionId, err
+}
+
+/* Data */
+
+const (
+  TR_ETA_NOT_AVAIL = -1
+  TR_ETA_UNKNOWN = -2
+)
+
+const (
+  TR_STATUS_STOPPED = 0 /* Torrent is stopped */
+  TR_STATUS_CHECK_WAIT = 1 /* Queued to check files */
+  TR_STATUS_CHECK = 2 /* Checking files */
+  TR_STATUS_DOWNLOAD_WAIT = 3 /* Queued to download */
+  TR_STATUS_DOWNLOAD = 4 /* Downloading */
+  TR_STATUS_SEED_WAIT = 5 /* Queued to seed */
+  TR_STATUS_SEED = 6 /* Seeding */
+)
+
+type TorrentListItem struct {
+  Id int64              `json:"id"`
+  Name string           `json:"name"`
+  UploadSpeed float32   `json:"rateUpload"`
+  DownloadSpeed float32 `json:"rateDownload"`
+  Ratio float32         `json:"uploadRatio"`
+  Eta int32             `json:"eta"`
+  SizeWhenDone int64    `json:"sizeWhenDone"`
+  LeftUntilDone int64   `json:"leftUntilDone"`
+  Status int8           `json:"status"`
+}
+
+type TorrentListResponseArguments struct {
+  Torrents []TorrentListItem `json:"torrents"`
+}
+
+type TorrentListResponse struct {
+  Result string                          `json:"result"`
+  Tag string                             `json:"tag"`
+  Arguments TorrentListResponseArguments `json:"arguments"`
+}
+
+/* Requests */
+
+func RefreshRequest(conn Connection) TRequest {
+  return TRequest{
+    conn,
+    "",
+    "",
+    nil}
+}
+
+func ListRequest(conn Connection, token string) TRequest {
+  return TRequest{
+    conn,
+    "torrent-get",
+    token,
+    map[string]interface{} { "fields": []string{
+      "error",
+      "errorString",
+      "eta",
+      "id",
+      "leftUntilDone",
+      "name",
+      "rateDownload",
+      "rateUpload",
+      "sizeWhenDone",
+      "status",
+      "uploadRatio"}}}
+}
+
+func DeleteRequest(conn Connection, token string, ids []int64, withData bool) TRequest {
+  return TRequest{
+    conn,
+    "torrent-remove",
+    token,
+    map[string]interface{} { "ids": ids, "delete-local-data": withData }}
+}
+
+/* Client */
+
+type Client struct {
+  Host string
+  Port int32
+  token string
+}
+
+func NewClient(host string, port int32) *Client {
+  return &Client{ host, port, "" }
+}
+
+func (client *Client) refresh() {
+  req, err := RefreshRequest(Connection{client.Host, client.Port}).ToRequest()
+  if err != nil {
+    panic(err)
+  }
+
+  httpClient := &http.Client{}
+  response, err := httpClient.Do(req)
+
+  if err != nil {
+    panic(err)
+  }
+
+  token := response.Header["X-Transmission-Session-Id"][0]
+  if token == "" {
+    panic("token is nil")
+  }
+
+  client.token = token
+}
+
+func (client *Client) perform(builder func(Connection, string)(*http.Request, error)) ([]byte, error) {
+  if client.token == "" {
+    client.refresh()
+  }
+
+  req, err := builder(Connection{client.Host, client.Port}, client.token)
+
+  if err != nil {
+    return nil, err
+  }
+
+  httpClient := &http.Client{}
+  response, err := httpClient.Do(req)
+
+  if err != nil {
+    return nil, err
+  }
+
+  defer response.Body.Close()
+  body, err := ioutil.ReadAll(response.Body)
+
+  return body, err
+}
+
+func (client *Client) List() (*[]TorrentListItem, error) {
+  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return ListRequest(conn, token).ToRequest()
+  })
+
+  if err != nil {
+    return nil, err
+  }
+
+  var listResponse TorrentListResponse
+  json.Unmarshal(body, &listResponse)
+
+  return &listResponse.Arguments.Torrents, err
+}
+
+func (client *Client) Delete(ids []int64, withData bool) error {
+  _, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return DeleteRequest(conn, token, ids, withData).ToRequest()
+  })
+
+  return err
+}

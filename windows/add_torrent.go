@@ -1,0 +1,230 @@
+package windows
+
+import (
+  gc "github.com/rthornton128/goncurses"
+  "fmt"
+  "strings"
+)
+
+type NewTorResult int
+
+const (
+  NEW_RESULT_NO NewTorResult = iota
+  NEW_RESULT_CONFIRM = iota
+  NEW_RESULT_CANCEL = iota
+)
+
+type NewTorrentWindowState struct {
+  Url string
+  Path string
+  Focus int
+  Result NewTorResult
+}
+
+const (
+  FOCUS_URL int = 0
+  FOCUS_PATH = 1
+  FOCUS_CONFIRM = 2
+  FOCUS_CANCEL = 3
+)
+
+/* Input handling */
+
+type NewTorrentInput interface {
+  UpdateState(state *NewTorrentWindowState)
+}
+
+type NewTorChar struct {
+  Input gc.Key
+}
+
+func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
+  switch state.Focus {
+  case FOCUS_URL:
+    if char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC {
+      if len(state.Url) > 0 {
+        runes := []rune(state.Url)
+        trimmed := runes[0:len(state.Url)-1]
+        state.Url = string(trimmed)
+      }
+    } else {
+      state.Url = state.Url + fmt.Sprintf("%c", char.Input)
+    }
+  case FOCUS_PATH:
+    if char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC {
+      if len(state.Path) > 0 {
+        runes := []rune(state.Path)
+        trimmed := runes[0:len(state.Path)-1]
+        state.Path = string(trimmed)
+      }
+    } else {
+      state.Path = state.Path + fmt.Sprintf("%c", char.Input)
+    }
+  }
+}
+
+type NewTorMove struct {
+  Direction int
+}
+
+func (move NewTorMove) UpdateState(state *NewTorrentWindowState) {
+  if move.Direction > 0 {
+    state.Focus = (state.Focus + move.Direction) % 4
+  } else {
+    state.Focus = state.Focus + move.Direction
+    if state.Focus < 0 {
+      state.Focus = 3
+    }
+  }
+
+}
+
+type NewTorAction struct {
+  Confirmed bool
+}
+
+func (action NewTorAction) UpdateState(state *NewTorrentWindowState) {
+  switch action.Confirmed {
+  case true:
+    state.Result = NEW_RESULT_CONFIRM
+  default:
+    state.Result = NEW_RESULT_CANCEL
+  }
+}
+
+/* Main loop */
+
+func NewTorrentWindow(source *gc.Window, result chan error) {
+  rows, cols := source.MaxYX()
+
+  height, width := 11, minInt(60, cols * 3 / 4)
+  y, x := (rows - height) / 2, (cols - width) / 2
+
+  window, err := gc.NewWindow(height, width, y, x)
+  window.Keypad(true)
+
+  if err != nil {
+    result <- err
+    return
+  }
+
+  out := make(chan NewTorrentInput)
+
+  // Window state
+  state := &NewTorrentWindowState{}
+
+  // Handle user input.
+  go func(control chan NewTorrentInput) {
+    for {
+      ch := window.GetChar()
+      switch state.Focus {
+      case FOCUS_URL, FOCUS_PATH:
+        switch ch {
+        case '\n', gc.KEY_DOWN:
+          control <- NewTorMove{ 1 }
+        case gc.KEY_UP:
+          control <- NewTorMove{ -1 }
+        default:
+          control <- NewTorChar{ ch }
+        }
+      default:
+        switch ch {
+        case gc.KEY_DOWN:
+          control <- NewTorMove{ 1 }
+        case gc.KEY_UP:
+          control <- NewTorMove{ -1 }
+        case gc.KEY_LEFT, gc.KEY_RIGHT:
+          if state.Focus == FOCUS_CANCEL {
+            control <- NewTorMove { -1 }
+          } else {
+            control <- NewTorMove { 1 }
+          }
+        case '\n':
+          control <- NewTorAction{ state.Focus == FOCUS_CONFIRM }
+        }
+      }
+    }
+  }(out)
+
+  // Initial draw.
+  drawNewTorrentWindow(window, *state)
+
+  for {
+    input := <-out
+    input.UpdateState(state)
+
+    if state.Result == NEW_RESULT_CONFIRM {
+      return
+    } else {
+      drawNewTorrentWindow(window, *state)
+    }
+  }
+
+  window.Delete()
+}
+
+func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
+  window.Erase()
+  window.Box(gc.ACS_VLINE, gc.ACS_HLINE)
+
+  _, col := window.MaxYX()
+  startX, width := 2, col-4
+
+  // Header
+  window.MovePrintf(1, startX, "Add torrent")
+  window.HLine(2, 1, gc.ACS_HLINE, col-2)
+
+  // URL
+  window.MovePrintf(3, startX, "URL: ")
+  window.ColorOn(1)
+  window.MovePrintf(4, startX, state.Url)
+  window.MovePrintf(4, startX + len(state.Url), strings.Repeat(" ", width - len(state.Url)))
+  window.ColorOff(1)
+
+  // Path
+  window.MovePrintf(6, startX, "Path: ")
+  window.ColorOn(1)
+  window.MovePrintf(6, startX, state.Path)
+  window.MovePrintf(6, startX + len(state.Path), strings.Repeat(" ", width - len(state.Path)))
+  window.ColorOff(1)
+
+  // Controls delimiter
+  window.HLine(8, 1, gc.ACS_HLINE, col-2)
+
+  buttonWidth := width / 2
+  attribute := gc.A_NORMAL
+
+  // Confirm
+  if state.Focus == FOCUS_CONFIRM {
+    attribute = gc.A_REVERSE
+  } else {
+    attribute = gc.A_NORMAL
+  }
+  withAttribute(window, attribute, func(window *gc.Window) {
+    window.MovePrintf(9, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
+  })
+
+  // Cancel
+  if state.Focus == FOCUS_CANCEL {
+    attribute = gc.A_REVERSE
+  } else {
+    attribute = gc.A_NORMAL
+  }
+  withAttribute(window, attribute, func(window *gc.Window) {
+    window.MovePrintf(9, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
+  })
+
+  switch state.Focus {
+  case FOCUS_URL:
+    gc.Cursor(1)
+    window.Move(4, startX + len(state.Url))
+  case FOCUS_PATH:
+    gc.Cursor(1)
+    window.Move(6, startX + len(state.Path))
+  default:
+    gc.Cursor(0)
+  }
+
+  window.Refresh()
+}
+
