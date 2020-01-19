@@ -2,6 +2,7 @@ package windows
 
 import (
   "fmt"
+  "time"
   "../transmission"
   gc "github.com/rthornton128/goncurses"
   "os"
@@ -40,13 +41,7 @@ type ListWindowState struct {
   Selection []int
   Rows, Cols int
   PendingOperation *ListOperation
-}
-
-type ListWindow struct {
-  List chan torrents
-  Error chan error
-  Input chan input
-  Stop chan bool
+  Error error
 }
 
 const (
@@ -55,13 +50,16 @@ const (
   FOOTER_HEIGHT = 2
 )
 
-func NewListWindow(screen *gc.Window, list chan torrents, err chan error, operations chan interface{}) {
-  out := make(chan input)
+func NewListWindow(screen *gc.Window, client *transmission.Client) {
+  reader := NewInputReader(screen)
+  observer := make(chan gc.Key)
+  reader.AddObserver(observer)
 
   // Handle user input.
+  out := make(chan input)
   go func(control chan input) {
     for {
-      c := screen.GetChar()
+      c := <-observer
       switch c {
       case 'q':
         control <- EXIT
@@ -93,6 +91,22 @@ func NewListWindow(screen *gc.Window, list chan torrents, err chan error, operat
     }
   }(out)
 
+  // Handle list update.
+  items, err := make(chan *[]transmission.TorrentListItem), make(chan error)
+  go func() {
+    // First poll.
+    list, e := client.List()
+    err <- e
+    items <- list
+
+    for {
+      <-time.After(time.Duration(3) * time.Second)
+      list, e := client.List()
+      err <- e
+      items <- list
+    }
+  }()
+
   // Initial window state.
   state := &ListWindowState{}
   state.Offset, state.Cursor = 0, -1
@@ -102,8 +116,8 @@ func NewListWindow(screen *gc.Window, list chan torrents, err chan error, operat
   func(control chan input, err chan error, list chan torrents) {
     for {
       select {
-      case <-err:
-        // TODO: Show error.
+      case e := <-err:
+        state.Error = e
       case l := <-list:
         state.Items = l
         state.Cursor = minInt(len(*state.Items) - 1, state.Cursor)
@@ -118,10 +132,10 @@ func NewListWindow(screen *gc.Window, list chan torrents, err chan error, operat
           }
 
           if op := state.PendingOperation; op != nil && op.Operation == c && op.Item.Id == (*state.Items)[state.Cursor].Id {
-             operations <- *op
-             state.PendingOperation = nil
+            go handleOperation(screen, client, *op, list, err)
+            state.PendingOperation = nil
           } else {
-             state.PendingOperation = &ListOperation{ c, &(*state.Items)[state.Cursor] }
+            state.PendingOperation = &ListOperation{ c, &(*state.Items)[state.Cursor] }
           }
         case CURSOR_UP:
           state.Cursor, state.PendingOperation = maxInt(0, state.Cursor - 1), nil
@@ -133,7 +147,7 @@ func NewListWindow(screen *gc.Window, list chan torrents, err chan error, operat
           state.Rows, state.Cols = screen.MaxYX()
         case ADD:
           res := make(chan error)
-          NewTorrentWindow(screen, res)
+          NewTorrentWindow(screen, reader, res)
         }
 
         // Update offset if needed.
@@ -147,7 +161,9 @@ func NewListWindow(screen *gc.Window, list chan torrents, err chan error, operat
         drawList(screen, *state)
       }
     }
-  }(out, err, list)
+  }(out, err, items)
+
+  reader.RemoveObserver(observer)
 }
 
 func drawList(window *gc.Window, state ListWindowState) {
@@ -195,11 +211,11 @@ func drawList(window *gc.Window, state ListWindowState) {
 
   // Clear remaining lines if needed.
   for index := y; index < row - FOOTER_HEIGHT; index++ {
-    window.HLine(index, 0, gc.ACS_HLINE, col)
+    window.HLine(index, 0, ' ', col)
   }
 
   // Status.
-  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_DIAMOND, col)
+  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
   if op := state.PendingOperation; op != nil {
     switch op.Operation {
     case DELETE:
@@ -209,6 +225,8 @@ func drawList(window *gc.Window, state ListWindowState) {
       window.MovePrintf(row - FOOTER_HEIGHT + 1, 0,
         "Deleting torrent %d along with data. Press 'D' again to confirm.", op.Item.Id)
     }
+  } else if state.Error != nil {
+    window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", state.Error)
   } else {
     window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   }
@@ -262,5 +280,32 @@ func formatStatus(status int8) string {
     return "Seeding"
   }
   return "Unknown"
+}
+
+func handleOperation(screen *gc.Window, client *transmission.Client, operation interface{}, items chan *[]transmission.TorrentListItem, err chan error) {
+  var e error
+
+  switch operation.(type) {
+  case ListOperation:
+    lop := operation.(ListOperation)
+    switch lop.Operation {
+    case DELETE:
+      e = client.Delete([]int64{ lop.Item.Id }, false)
+    case DELETE_WITH_DATA:
+      e = client.Delete([]int64{ lop.Item.Id }, true)
+    default:
+      e = fmt.Errorf("Unknown list operation type")
+    }
+  default:
+    e = fmt.Errorf("Unknown operation type")
+  }
+
+  if e != nil {
+    err <- e
+  } else {
+    list, e := client.List()
+    items <- list
+    err <- e
+  }
 }
 

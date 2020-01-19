@@ -76,7 +76,6 @@ func (move NewTorMove) UpdateState(state *NewTorrentWindowState) {
       state.Focus = 3
     }
   }
-
 }
 
 type NewTorAction struct {
@@ -92,9 +91,12 @@ func (action NewTorAction) UpdateState(state *NewTorrentWindowState) {
   }
 }
 
+type NewTorNotRecognized struct { }
+func (empty NewTorNotRecognized) UpdateState(state *NewTorrentWindowState) { }
+
 /* Main loop */
 
-func NewTorrentWindow(source *gc.Window, result chan error) {
+func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error) {
   rows, cols := source.MaxYX()
 
   height, width := 11, minInt(60, cols * 3 / 4)
@@ -108,58 +110,62 @@ func NewTorrentWindow(source *gc.Window, result chan error) {
     return
   }
 
-  out := make(chan NewTorrentInput)
-
   // Window state
   state := &NewTorrentWindowState{}
 
   // Handle user input.
-  go func(control chan NewTorrentInput) {
-    for {
-      ch := window.GetChar()
-      switch state.Focus {
-      case FOCUS_URL, FOCUS_PATH:
-        switch ch {
-        case '\n', gc.KEY_DOWN:
-          control <- NewTorMove{ 1 }
-        case gc.KEY_UP:
-          control <- NewTorMove{ -1 }
-        default:
-          control <- NewTorChar{ ch }
-        }
+  observer := make(chan gc.Key)
+  reader.AddObserver(observer)
+
+  get_input := func() NewTorrentInput {
+    ch := <-observer
+    switch state.Focus {
+    case FOCUS_URL, FOCUS_PATH:
+      switch ch {
+      case '\n', gc.KEY_DOWN:
+        return NewTorMove{ 1 }
+      case gc.KEY_UP:
+        return NewTorMove{ -1 }
       default:
-        switch ch {
-        case gc.KEY_DOWN:
-          control <- NewTorMove{ 1 }
-        case gc.KEY_UP:
-          control <- NewTorMove{ -1 }
-        case gc.KEY_LEFT, gc.KEY_RIGHT:
-          if state.Focus == FOCUS_CANCEL {
-            control <- NewTorMove { -1 }
-          } else {
-            control <- NewTorMove { 1 }
-          }
-        case '\n':
-          control <- NewTorAction{ state.Focus == FOCUS_CONFIRM }
+        return NewTorChar{ ch }
+      }
+    default:
+      switch ch {
+      case gc.KEY_DOWN:
+        return NewTorMove{ 1 }
+      case gc.KEY_UP:
+        return NewTorMove{ -1 }
+      case gc.KEY_LEFT, gc.KEY_RIGHT:
+        if state.Focus == FOCUS_CANCEL {
+          return NewTorMove { -1 }
+        } else {
+          return NewTorMove { 1 }
         }
+      case '\n':
+        return NewTorAction{ state.Focus == FOCUS_CONFIRM }
       }
     }
-  }(out)
+
+    return NewTorNotRecognized{}
+  }
 
   // Initial draw.
   drawNewTorrentWindow(window, *state)
 
   for {
-    input := <-out
+    input := get_input()
     input.UpdateState(state)
 
     if state.Result == NEW_RESULT_CONFIRM {
-      return
+      break
+    } else if state.Result == NEW_RESULT_CANCEL {
+      break
     } else {
       drawNewTorrentWindow(window, *state)
     }
   }
 
+  reader.RemoveObserver(observer)
   window.Delete()
 }
 
@@ -214,15 +220,19 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
     window.MovePrintf(9, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
   })
 
+  // Enable cursor on input fields.
+  if (state.Focus < 2) {
+    gc.Cursor(1)
+  } else {
+    gc.Cursor(0)
+  }
+
+  // Move cursor if needed.
   switch state.Focus {
   case FOCUS_URL:
-    gc.Cursor(1)
     window.Move(4, startX + len(state.Url))
   case FOCUS_PATH:
-    gc.Cursor(1)
     window.Move(6, startX + len(state.Path))
-  default:
-    gc.Cursor(0)
   }
 
   window.Refresh()
