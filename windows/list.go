@@ -195,7 +195,7 @@ func drawList(window *gc.Window, state ListWindowState) {
       window.MovePrintf(y, x, format,
         item.Id,
         item.Name[0:minInt(len(item.Name), titleLength)],
-        fmt.Sprintf("%d%%", ((item.SizeWhenDone - item.LeftUntilDone)/item.SizeWhenDone*100)),
+        fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0),
         formatSize(item.SizeWhenDone),
         formatStatus(item.Status),
         item.Ratio,
