@@ -20,6 +20,8 @@ const (
   RESIZE = iota
   CURSOR_UP = iota
   CURSOR_DOWN = iota
+  CURSOR_PAGEDOWN = iota
+  CURSOR_PAGEUP = iota
   DETAILS = iota
   DELETE = iota
   DELETE_WITH_DATA = iota
@@ -75,6 +77,10 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- CURSOR_UP
       case gc.KEY_DOWN:
         control <- CURSOR_DOWN
+      case gc.KEY_PAGEDOWN:
+        control <- CURSOR_PAGEDOWN
+      case gc.KEY_PAGEUP:
+        control <- CURSOR_PAGEUP
       case 'a':
         control <- ADD
       }
@@ -120,8 +126,13 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
       select {
       case e := <-err:
         state.Error = e
-      case l := <-list:
-        state.Items = l
+        drawList(screen, *state)
+      case items := <-list:
+        if items != nil {
+          state.Items = items
+        } else {
+          state.Items = &[]transmission.TorrentListItem{}
+        }
         state.Cursor = minInt(len(*state.Items) - 1, state.Cursor)
         drawList(screen, *state)
       case c := <-control:
@@ -143,6 +154,12 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
           state.Cursor, state.PendingOperation = maxInt(0, state.Cursor - 1), nil
         case CURSOR_DOWN:
           state.Cursor, state.PendingOperation = minInt(state.Cursor + 1, len(*state.Items) - 1), nil
+        case CURSOR_PAGEUP:
+          state.Offset = maxInt(state.Offset - (state.Rows - INFO_HEIGHT), 0)
+          state.Cursor = maxInt(state.Cursor - (state.Rows - INFO_HEIGHT), 0)
+        case CURSOR_PAGEDOWN:
+          state.Offset = minInt(state.Offset + state.Rows - INFO_HEIGHT, len(*state.Items) - (state.Rows - INFO_HEIGHT))
+          state.Cursor = minInt(state.Cursor + state.Rows - INFO_HEIGHT, len(*state.Items) - 1)
         case RESIZE:
           gc.End()
           screen.Refresh()

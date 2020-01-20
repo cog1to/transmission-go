@@ -143,7 +143,7 @@ func NewClient(host string, port int32) *Client {
   return &Client{ host, port, "" }
 }
 
-func (client *Client) refresh() {
+func (client *Client) refresh() error {
   req, err := RefreshRequest(Connection{client.Host, client.Port}).ToRequest()
   if err != nil {
     panic(err)
@@ -153,20 +153,26 @@ func (client *Client) refresh() {
   response, err := httpClient.Do(req)
 
   if err != nil {
-    panic(err)
+    return err
   }
 
   token := response.Header["X-Transmission-Session-Id"][0]
   if token == "" {
-    panic("token is nil")
+    return fmt.Errorf("Failed to authenticate: couldn't receive session ID token.")
   }
 
   client.token = token
+  return nil
 }
 
 func (client *Client) perform(builder func(Connection, string)(*http.Request, error)) ([]byte, error) {
+  var err error
   if client.token == "" {
-    client.refresh()
+    err = client.refresh()
+  }
+
+  if err != nil {
+    return nil, err
   }
 
   req, err := builder(Connection{client.Host, client.Port}, client.token)
