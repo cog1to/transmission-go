@@ -4,10 +4,12 @@ import (
   "fmt"
   "time"
   "../transmission"
-  gc "github.com/rthornton128/goncurses"
+  gc "../goncurses"
+  wchar "../cgo.wchar"
   "os"
   "os/signal"
   "syscall"
+  "strings"
 )
 
 type torrents = *[]transmission.TorrentListItem
@@ -172,17 +174,23 @@ func drawList(window *gc.Window, state ListWindowState) {
   }
 
   row, col := state.Rows, state.Cols
-  titleLength := col - 63
-  format := fmt.Sprintf("%%5d %%-%ds %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s", titleLength)
+  maxTitleLength := maxInt(0, col - 63)
+  format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
 
   // Legend.
-  legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-9s %%-12s %%-6s %%-9s %%-9s", titleLength)
+  legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
   window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "Size", "Status", "Ratio", "Down", "Up")
   window.HLine(1, 0, gc.ACS_HLINE, col)
 
   // List.
   x, y := 0, HEADER_HEIGHT
   for index, item := range (*state.Items)[state.Offset:] {
+    title := []rune(item.Name)
+
+    croppedTitleLength := minInt(maxTitleLength, len(title))
+    croppedTitle := title[0:croppedTitleLength]
+    spacesLength := maxTitleLength - croppedTitleLength
+
     var attribute gc.Char
     if index + state.Offset == state.Cursor {
       attribute = gc.A_REVERSE
@@ -191,16 +199,21 @@ func drawList(window *gc.Window, state ListWindowState) {
     }
 
     withAttribute(window, attribute, func(window *gc.Window) {
-      // Format: ID | Name | Done | Size | Status
-      window.MovePrintf(y, x, format,
+      output := fmt.Sprintf(format,
         item.Id,
-        item.Name[0:minInt(len(item.Name), titleLength)],
+        string(croppedTitle),
+        strings.Repeat(" ", spacesLength),
         fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0),
         formatSize(item.SizeWhenDone),
         formatStatus(item.Status),
         item.Ratio,
         formatSpeed(item.DownloadSpeed),
         formatSpeed(item.UploadSpeed))
+
+        ws, convertError := wchar.FromGoString(output)
+        if (convertError == nil) {
+          window.MovePrintW(y, x, ws)
+        }
     })
 
     y += 1

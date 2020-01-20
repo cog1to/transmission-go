@@ -7,11 +7,11 @@ import (
   "log"
   "./transmission"
   "./windows"
-  gc "github.com/rthornton128/goncurses"
+  gc "./goncurses"
 )
 
 func main() {
-  C.setlocale(C.int(0), C.CString("en_US.UTF-8"))
+  C.setlocale(C.int(0), C.CString(""))
 
   // Initialize daemon connection
   client := transmission.NewClient("localhost", 9091)

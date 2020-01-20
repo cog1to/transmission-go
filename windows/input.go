@@ -4,7 +4,7 @@ package windows
 import "C"
 
 import (
-  gc "github.com/rthornton128/goncurses"
+  gc "../goncurses"
 )
 
 type InputReader struct {

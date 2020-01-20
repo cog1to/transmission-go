@@ -55,30 +55,6 @@ func (request TRequest) ToRequest() (*http.Request, error) {
   return req, nil
 }
 
-func Execute(req *Requester) (*[]byte, string, error) {
-  httpReq, err := (*req).ToRequest()
-  if err != nil {
-    return nil, "", err
-  }
-
-  httpClient := &http.Client{}
-  response, err := httpClient.Do(httpReq)
-
-  if err != nil {
-    return nil, "", err
-  }
-
-  defer response.Body.Close()
-  body, err := ioutil.ReadAll(response.Body)
-
-  var sessionId string
-  if header, present := response.Header["X-Transmission-Session-Id"]; present {
-    sessionId = header[0]
-  }
-
-  return &body, sessionId, err
-}
-
 /* Data */
 
 const (
@@ -204,6 +180,13 @@ func (client *Client) perform(builder func(Connection, string)(*http.Request, er
 
   if err != nil {
     return nil, err
+  }
+
+
+  if header, present := response.Header["X-Transmission-Session-Id"]; present {
+    client.token = header[0]
+  } else {
+    err = fmt.Errorf("No token present")
   }
 
   defer response.Body.Close()

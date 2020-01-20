@@ -1,7 +1,7 @@
 package windows
 
 import (
-  gc "github.com/rthornton128/goncurses"
+  gc "../goncurses"
   "fmt"
   "strings"
 )
