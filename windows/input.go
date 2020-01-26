@@ -16,7 +16,7 @@ func NewInputReader(screen *gc.Window) *InputReader {
 
   go func() {
     for {
-      ch := screen.GetChar()
+      ch := screen.GetWChar()
       if len(reader.observerList) > 0 {
         lastObserver := reader.observerList[len(reader.observerList) - 1]
         lastObserver <- ch

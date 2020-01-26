@@ -44,7 +44,7 @@ func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
     if char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC {
       if len(state.Url) > 0 {
         runes := []rune(state.Url)
-        trimmed := runes[0:len(state.Url)-1]
+        trimmed := runes[0:len(runes)-1]
         state.Url = string(trimmed)
       }
     } else {
@@ -99,7 +99,7 @@ func (empty NewTorNotRecognized) UpdateState(state *NewTorrentWindowState) { }
 func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error) {
   rows, cols := source.MaxYX()
 
-  height, width := 11, minInt(60, cols * 3 / 4)
+  height, width := 11, minInt(cols, maxInt(60, cols * 3 / 4))
   y, x := (rows - height) / 2, (cols - width) / 2
 
   window, err := gc.NewWindow(height, width, y, x)
@@ -122,7 +122,7 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error)
     switch state.Focus {
     case FOCUS_URL, FOCUS_PATH:
       switch ch {
-      case '\n', gc.KEY_DOWN:
+      case '\n', gc.KEY_DOWN, gc.KEY_TAB:
         return NewTorMove{ 1 }
       case gc.KEY_UP:
         return NewTorMove{ -1 }
@@ -131,7 +131,7 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error)
       }
     default:
       switch ch {
-      case gc.KEY_DOWN:
+      case gc.KEY_DOWN, gc.KEY_TAB:
         return NewTorMove{ 1 }
       case gc.KEY_UP:
         return NewTorMove{ -1 }
@@ -184,14 +184,16 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   window.MovePrintf(3, startX, "URL: ")
   window.ColorOn(1)
   window.MovePrintf(4, startX, state.Url)
-  window.MovePrintf(4, startX + len(state.Url), strings.Repeat(" ", width - len(state.Url)))
+  urlRunes := []rune(state.Url)
+  window.MovePrintf(4, startX + len(urlRunes), strings.Repeat(" ", width - len(urlRunes)))
   window.ColorOff(1)
 
   // Path
-  window.MovePrintf(6, startX, "Path: ")
+  window.MovePrintf(5, startX, "Path: ")
   window.ColorOn(1)
   window.MovePrintf(6, startX, state.Path)
-  window.MovePrintf(6, startX + len(state.Path), strings.Repeat(" ", width - len(state.Path)))
+  pathRunes := []rune(state.Path)
+  window.MovePrintf(6, startX + len(pathRunes), strings.Repeat(" ", width - len(pathRunes)))
   window.ColorOff(1)
 
   // Controls delimiter
@@ -230,7 +232,7 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   // Move cursor if needed.
   switch state.Focus {
   case FOCUS_URL:
-    window.Move(4, startX + len(state.Url))
+    window.Move(4, startX + len([]rune(state.Url)))
   case FOCUS_PATH:
     window.Move(6, startX + len(state.Path))
   }
