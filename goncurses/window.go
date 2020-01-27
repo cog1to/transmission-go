@@ -4,15 +4,12 @@
 
 package goncurses
 
-// #cgo darwin LDFLAGS: -L/usr/local/opt/ncurses/lib/ -lncursesw
-// #cgo !darwin LDFLAGS: -lncursesw
+// #cgo LDFLAGS: -lncursesw
 // #include <stdlib.h>
 // #include <locale.h>
 // #include <wchar.h>
 // #include <curses.h>
 // #include "goncurses.h"
-// extern NCURSES_EXPORT(int) mvwaddwstr (WINDOW *, int, int, const wchar_t *);	/* generated:WIDEC */
-// extern NCURSES_EXPORT(int) wget_wch (WINDOW *, wchar_t *);		/* implemented */
 import "C"
 
 import (
@@ -254,7 +251,7 @@ func (w *Window) GetChar() Key {
 
 func (w *Window) GetWChar() Key {
   var ch int
-	status := C.wget_wch(w.win, (*C.wchar_t)(unsafe.Pointer(&ch)))
+	status := C.wget_wch(w.win, (*C.wint_t)(unsafe.Pointer(&ch)))
 	if status == C.ERR {
 		ch = 0
 	}
