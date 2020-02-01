@@ -26,11 +26,13 @@ const (
   DELETE = iota
   DELETE_WITH_DATA = iota
   ADD = iota
+  SELECT = iota
+  CLEAR_SELECT = iota
 )
 
 type ListOperation struct {
   Operation input
-  Item *transmission.TorrentListItem
+  Items []transmission.TorrentListItem
 }
 
 type AddOperation struct {
@@ -83,6 +85,10 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- CURSOR_PAGEUP
       case 'a':
         control <- ADD
+      case ' ':
+        control <- SELECT
+      case 'c':
+        control <- CLEAR_SELECT
       }
     }
   }(out)
@@ -140,11 +146,25 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             break
           }
 
-          if op := state.PendingOperation; op != nil && op.Operation == c && op.Item.Id == (*state.Items)[state.Cursor].Id {
-            go handleOperation(screen, client, *op, list, err)
-            state.PendingOperation = nil
+          if op := state.PendingOperation; op != nil {
+            if len(state.Selection) == 0 {
+              go handleOperation(screen, client, *op, list, err)
+              state.PendingOperation = nil
+            } else {
+              state.Selection = []int{}
+              go handleOperation(screen, client, *op, list, err)
+              state.PendingOperation = nil
+            }
           } else {
-            state.PendingOperation = &ListOperation{ c, &(*state.Items)[state.Cursor] }
+            if len(state.Selection) == 0 {
+              state.PendingOperation = &ListOperation{ c, (*state.Items)[state.Cursor:state.Cursor+1] }
+            } else {
+              items := make([]transmission.TorrentListItem, len(state.Selection))
+              for i, index := range state.Selection {
+                items[i] = (*state.Items)[index]
+              }
+              state.PendingOperation = &ListOperation{ c, items }
+            }
           }
         case CURSOR_UP:
           state.Cursor, state.PendingOperation = maxInt(0, state.Cursor - 1), nil
@@ -166,6 +186,15 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
           }
           NewTorrentWindow(screen, reader, client, errorDrawer)
           go updateList(client, list, err)
+        case SELECT:
+          if contains(state.Selection, state.Cursor) {
+            state.Selection = removeInt(state.Selection, state.Cursor)
+          } else {
+            state.Selection = append(state.Selection, state.Cursor)
+          }
+          state.PendingOperation = nil
+        case CLEAR_SELECT:
+          state.Selection = []int{}
         }
 
         // Update offset if needed.
@@ -213,6 +242,9 @@ func drawList(window *gc.Window, state ListWindowState) {
     } else {
       attribute = gc.A_NORMAL
     }
+    if contains(state.Selection, index + state.Offset) {
+      attribute = attribute | gc.A_BOLD
+    }
 
     withAttribute(window, attribute, func(window *gc.Window) {
       output := fmt.Sprintf(format,
@@ -246,13 +278,20 @@ func drawList(window *gc.Window, state ListWindowState) {
   // Status.
   window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
   if op := state.PendingOperation; op != nil {
+    var idsString string
+    if len(op.Items) == 1 {
+      idsString = fmt.Sprintf("torrent %d", op.Items[0].Id)
+    } else {
+      idsString = fmt.Sprintf("torrents %s", strings.Join(mapToString(op.Items), ", "))
+    }
+
     switch op.Operation {
     case DELETE:
       window.MovePrintf(row - FOOTER_HEIGHT + 1, 0,
-        "Removing torrent %d from the list. Press 'd' again to confirm.", op.Item.Id)
+        "Removing %s from the list. Press 'd' again to confirm.", idsString)
     case DELETE_WITH_DATA:
       window.MovePrintf(row - FOOTER_HEIGHT + 1, 0,
-        "Deleting torrent %d along with data. Press 'D' again to confirm.", op.Item.Id)
+        "Deleting %s along with data. Press 'D' again to confirm.", idsString)
     }
   } else if state.Error != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", state.Error)
@@ -331,11 +370,18 @@ func handleOperation(screen *gc.Window, client *transmission.Client, operation i
   switch operation.(type) {
   case ListOperation:
     lop := operation.(ListOperation)
+    ids := func() []int64 {
+      output := make([]int64, len(lop.Items))
+      for index, item := range lop.Items {
+        output[index] = item.Id
+      }
+      return output
+    }()
     switch lop.Operation {
     case DELETE:
-      e = client.Delete([]int64{ lop.Item.Id }, false)
+      e = client.Delete(ids, false)
     case DELETE_WITH_DATA:
-      e = client.Delete([]int64{ lop.Item.Id }, true)
+      e = client.Delete(ids, true)
     default:
       e = fmt.Errorf("Unknown list operation type")
     }
@@ -354,4 +400,12 @@ func updateList(client *transmission.Client, items chan torrents, err chan error
     list, e := client.List()
     err <- e
     items <- list
+}
+
+func mapToString(slice []transmission.TorrentListItem) []string {
+  output := make([]string, len(slice))
+  for index, element := range slice {
+    output[index] = fmt.Sprintf("%d", element.Id)
+  }
+  return output
 }
