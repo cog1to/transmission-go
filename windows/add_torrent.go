@@ -43,16 +43,20 @@ type NewTorChar struct {
 }
 
 func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
+  var target *string
   var trimmed []rune
   var runes []rune
   var index int
 
   switch state.Focus {
   case FOCUS_URL:
-    runes = []rune(state.Url)
+    target = &state.Url
   case FOCUS_PATH:
-    runes = []rune(state.Path)
+    target = &state.Path
   }
+
+  var strCopy string = *target
+  runes = []rune(strCopy)
 
   if len(runes) == 0 && (char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC) {
     return
@@ -75,21 +79,14 @@ func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
     }
     trimmed = remove(runes, index)
   default:
-    prefix := runes[:state.Cursor]
-    updated := append(prefix, []rune(fmt.Sprintf("%c", char.Input))...)
-    output := append(updated, runes[state.Cursor:]...)
+    prefix, suffix := runes[:state.Cursor], runes[state.Cursor:]
+    output := fmt.Sprintf("%s%c%s", string(prefix), char.Input, string(suffix))
 
-    trimmed = []rune(string(output))
+    trimmed = []rune(output)
     state.Cursor += 1
   }
 
-
-  switch state.Focus {
-  case FOCUS_URL:
-    state.Url = string(trimmed)
-  case FOCUS_PATH:
-    state.Path = string(trimmed)
-  }
+  *target = string(trimmed)
 
   state.Cursor = maxInt(minInt(len(trimmed), state.Cursor), 0)
 }
