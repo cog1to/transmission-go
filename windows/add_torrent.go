@@ -275,19 +275,19 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   startX, width := 2, col-4
 
   // Header
-  window.MovePrintf(1, startX, "Add torrent")
+  window.MovePrint(1, startX, "Add torrent")
   window.HLine(2, 1, gc.ACS_HLINE, col-2)
 
   // URL
-  window.MovePrintf(3, startX, "Torrent file or URL:")
+  window.MovePrint(3, startX, "Torrent file or URL:")
   window.ColorOn(1)
   urlRunes := []rune(state.Url)
   urlOffset := maxInt(0, len(urlRunes) - width + 1)
-  window.MovePrintf(4, startX, string(urlRunes[urlOffset:]))
+  window.MovePrint(4, startX, string(urlRunes[urlOffset:]))
   if urlOffset == 0 {
-    window.MovePrintf(4, startX + len(urlRunes), strings.Repeat(" ", width - len(urlRunes)))
+    window.MovePrint(4, startX + len(urlRunes), strings.Repeat(" ", width - len(urlRunes)))
   } else {
-    window.MovePrintf(4, startX + width - 1, " ")
+    window.MovePrint(4, startX + width - 1, " ")
   }
   window.ColorOff(1)
 
@@ -296,11 +296,11 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   window.ColorOn(1)
   pathRunes := []rune(state.Path)
   pathOffset := maxInt(0, len(pathRunes) - width + 1)
-  window.MovePrintf(6, startX, string(pathRunes[pathOffset:]))
+  window.MovePrint(6, startX, string(pathRunes[pathOffset:]))
   if pathOffset == 0 {
-    window.MovePrintf(6, startX + len(pathRunes), strings.Repeat(" ", width - len(pathRunes)))
+    window.MovePrint(6, startX + len(pathRunes), strings.Repeat(" ", width - len(pathRunes)))
   } else {
-    window.MovePrintf(6, startX + width - 1, " ")
+    window.MovePrint(6, startX + width - 1, " ")
   }
   window.ColorOff(1)
 
