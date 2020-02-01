@@ -94,8 +94,19 @@ type TorrentListResponse struct {
   Arguments TorrentListResponseArguments `json:"arguments"`
 }
 
-type TorrentErrorResponse struct {
-  Result string                    `json:"result"`
+type TorrentAddedInfo struct {
+  HashString string `json:"hashString"`
+  Id int            `json:"id"`
+  Name string       `json:"name"`
+}
+
+type TorrentAddResponseArguments struct {
+  Torrent *TorrentAddedInfo `json:"torrent-added"`
+}
+
+type TorrentAddResponse struct {
+  Result string                         `json:"result"`
+  Arguments TorrentAddResponseArguments `json:"arguments"`
 }
 
 /* Requests */
@@ -113,18 +124,19 @@ func ListRequest(conn Connection, token string) TRequest {
     conn,
     "torrent-get",
     token,
-    map[string]interface{} { "fields": []string{
-      "error",
-      "errorString",
-      "eta",
-      "id",
-      "leftUntilDone",
-      "name",
-      "rateDownload",
-      "rateUpload",
-      "sizeWhenDone",
-      "status",
-      "uploadRatio"}}}
+    map[string]interface{} {
+      "fields": []string{
+        "error",
+        "errorString",
+        "eta",
+        "id",
+        "leftUntilDone",
+        "name",
+        "rateDownload",
+        "rateUpload",
+        "sizeWhenDone",
+        "status",
+        "uploadRatio"}}}
 }
 
 func DeleteRequest(conn Connection, token string, ids []int64, withData bool) TRequest {
@@ -256,10 +268,14 @@ func (client *Client) AddTorrent(url string, path string) (error) {
     return err
   }
 
-  var errorResponse TorrentErrorResponse
-  jsonErr := json.Unmarshal(body, &errorResponse)
-  if jsonErr == nil {
-    return fmt.Errorf("%s", errorResponse.Result)
+  var response TorrentAddResponse
+  jsonErr := json.Unmarshal(body, &response)
+  if jsonErr != nil {
+    return fmt.Errorf("Error: %s", jsonErr)
+  }
+
+  if response.Arguments.Torrent == nil {
+    return fmt.Errorf("%s", response.Result)
   }
 
   return nil

@@ -5,6 +5,7 @@ import (
   "../transmission"
   "fmt"
   "strings"
+  "os"
 )
 
 type NewTorResult int
@@ -74,7 +75,11 @@ func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
     }
     trimmed = remove(runes, index)
   default:
-    trimmed = []rune(string(runes) + fmt.Sprintf("%c", char.Input))
+    prefix := runes[:state.Cursor]
+    updated := append(prefix, []rune(fmt.Sprintf("%c", char.Input))...)
+    output := append(updated, runes[state.Cursor:]...)
+
+    trimmed = []rune(string(output))
     state.Cursor += 1
   }
 
@@ -240,7 +245,18 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
 
     if state.Result == NEW_RESULT_CONFIRM {
       state.Result = NEW_RESULT_NO
-      err := client.AddTorrent(state.Url, state.Path)
+
+      // Replace '~' with home path
+      url, path := state.Url, state.Path
+      if strings.HasPrefix(url, "~") {
+        url = strings.Replace(url, "~", os.Getenv("HOME"), 1)
+      }
+
+      if strings.HasPrefix(path, "~") {
+        path = strings.Replace(path, "~", os.Getenv("HOME"), 1)
+      }
+
+      err := client.AddTorrent(url, path)
       if err != nil {
         errorDrawer(fmt.Errorf("Error: %s", err))
       } else {
