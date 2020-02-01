@@ -165,8 +165,10 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
           screen.Refresh()
           state.Rows, state.Cols = screen.MaxYX()
         case ADD:
-          res := make(chan error)
-          NewTorrentWindow(screen, reader, res)
+          errorDrawer := func(err error) {
+            drawError(screen, err)
+          }
+          NewTorrentWindow(screen, reader, client, errorDrawer)
         }
 
         // Update offset if needed.
@@ -257,6 +259,20 @@ func drawList(window *gc.Window, state ListWindowState) {
     }
   } else if state.Error != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", state.Error)
+  } else {
+    window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
+  }
+
+  window.Refresh()
+}
+
+func drawError(window *gc.Window, err error) {
+  row, col := window.MaxYX()
+
+  // Status.
+  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
+  if err != nil {
+    window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", err)
   } else {
     window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   }

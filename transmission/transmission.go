@@ -94,6 +94,10 @@ type TorrentListResponse struct {
   Arguments TorrentListResponseArguments `json:"arguments"`
 }
 
+type TorrentErrorResponse struct {
+  Result string                    `json:"result"`
+}
+
 /* Requests */
 
 func RefreshRequest(conn Connection) TRequest {
@@ -131,6 +135,13 @@ func DeleteRequest(conn Connection, token string, ids []int64, withData bool) TR
     map[string]interface{} { "ids": ids, "delete-local-data": withData }}
 }
 
+func AddRequest(conn Connection, token string, filename string, downloadDir string, paused bool) TRequest {
+  return TRequest{
+    conn,
+    "torrent-add",
+    token,
+    map[string]interface{} { "filename": filename, "download-dir": downloadDir, "paused": paused }}
+}
 /* Client */
 
 type Client struct {
@@ -165,27 +176,27 @@ func (client *Client) refresh() error {
   return nil
 }
 
-func (client *Client) perform(builder func(Connection, string)(*http.Request, error)) ([]byte, error) {
+func (client *Client) perform(builder func(Connection, string)(*http.Request, error)) (int, []byte, error) {
   var err error
   if client.token == "" {
     err = client.refresh()
   }
 
   if err != nil {
-    return nil, err
+    return 200, nil, err
   }
 
   req, err := builder(Connection{client.Host, client.Port}, client.token)
 
   if err != nil {
-    return nil, err
+    return 200, nil, err
   }
 
   httpClient := &http.Client{}
   response, err := httpClient.Do(req)
 
   if err != nil {
-    return nil, err
+    return 200, nil, err
   }
 
 
@@ -198,16 +209,20 @@ func (client *Client) perform(builder func(Connection, string)(*http.Request, er
   defer response.Body.Close()
   body, err := ioutil.ReadAll(response.Body)
 
-  return body, err
+  return response.StatusCode, body, err
 }
 
 func (client *Client) List() (*[]TorrentListItem, error) {
-  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+  code, body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return ListRequest(conn, token).ToRequest()
   })
 
   if err != nil {
     return nil, err
+  }
+
+  if (code != 200) {
+    return nil, fmt.Errorf("Bad response code: %d", code)
   }
 
   var listResponse TorrentListResponse
@@ -217,9 +232,35 @@ func (client *Client) List() (*[]TorrentListItem, error) {
 }
 
 func (client *Client) Delete(ids []int64, withData bool) error {
-  _, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+  code, _, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return DeleteRequest(conn, token, ids, withData).ToRequest()
   })
 
+  if code != 200 {
+    return fmt.Errorf("Bad response code: %d", code)
+  }
+
   return err
+}
+
+func (client *Client) AddTorrent(url string, path string) (error) {
+  code, body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return AddRequest(conn, token, url, path, false).ToRequest()
+  })
+
+  if code != 200 {
+    return fmt.Errorf("Bad response code: %d", code)
+  }
+
+  if err != nil {
+    return err
+  }
+
+  var errorResponse TorrentErrorResponse
+  jsonErr := json.Unmarshal(body, &errorResponse)
+  if jsonErr == nil {
+    return fmt.Errorf("%s", errorResponse.Result)
+  }
+
+  return nil
 }

@@ -2,6 +2,7 @@ package windows
 
 import (
   gc "../goncurses"
+  "../transmission"
   "fmt"
   "strings"
 )
@@ -18,6 +19,8 @@ type NewTorrentWindowState struct {
   Url string
   Path string
   Focus int
+  Cursor int
+  Width int
   Result NewTorResult
 }
 
@@ -39,28 +42,51 @@ type NewTorChar struct {
 }
 
 func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
+  var trimmed []rune
+  var runes []rune
+  var index int
+
   switch state.Focus {
   case FOCUS_URL:
-    if char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC {
-      if len(state.Url) > 0 {
-        runes := []rune(state.Url)
-        trimmed := runes[0:len(runes)-1]
-        state.Url = string(trimmed)
-      }
-    } else {
-      state.Url = state.Url + fmt.Sprintf("%c", char.Input)
-    }
+    runes = []rune(state.Url)
   case FOCUS_PATH:
-    if char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC {
-      if len(state.Path) > 0 {
-        runes := []rune(state.Path)
-        trimmed := runes[0:len(state.Path)-1]
-        state.Path = string(trimmed)
-      }
-    } else {
-      state.Path = state.Path + fmt.Sprintf("%c", char.Input)
-    }
+    runes = []rune(state.Path)
   }
+
+  if len(runes) == 0 && (char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC) {
+    return
+  }
+
+  switch char.Input {
+  case gc.KEY_BACKSPACE:
+    if state.Cursor == 0 {
+      return
+    } else {
+      index = state.Cursor - 1
+    }
+    trimmed = remove(runes, index)
+    state.Cursor -= 1
+  case gc.KEY_DC:
+    if state.Cursor == len(runes) {
+      index = state.Cursor - 1
+    } else {
+      index = state.Cursor
+    }
+    trimmed = remove(runes, index)
+  default:
+    trimmed = []rune(string(runes) + fmt.Sprintf("%c", char.Input))
+    state.Cursor += 1
+  }
+
+
+  switch state.Focus {
+  case FOCUS_URL:
+    state.Url = string(trimmed)
+  case FOCUS_PATH:
+    state.Path = string(trimmed)
+  }
+
+  state.Cursor = maxInt(minInt(len(trimmed), state.Cursor), 0)
 }
 
 type NewTorMove struct {
@@ -75,6 +101,12 @@ func (move NewTorMove) UpdateState(state *NewTorrentWindowState) {
     if state.Focus < 0 {
       state.Focus = 3
     }
+  }
+
+  if state.Focus == FOCUS_URL {
+    state.Cursor = minInt(state.Cursor, len([]rune(state.Url)))
+  } else if state.Focus == FOCUS_PATH {
+    state.Cursor = minInt(state.Cursor, len([]rune(state.Path)))
   }
 }
 
@@ -94,24 +126,66 @@ func (action NewTorAction) UpdateState(state *NewTorrentWindowState) {
 type NewTorNotRecognized struct { }
 func (empty NewTorNotRecognized) UpdateState(state *NewTorrentWindowState) { }
 
+type NewTorCursorMove struct {
+  Direction int
+}
+
+func (action NewTorCursorMove) UpdateState(state *NewTorrentWindowState) {
+  newPosition := state.Cursor + action.Direction
+
+  var input string
+  if state.Focus == FOCUS_URL {
+    input = state.Url
+  } else if state.Focus == FOCUS_PATH {
+    input = state.Path
+  }
+
+  length := len([]rune(input))
+  offset := maxInt(0, length - state.Width + 1)
+  newPosition = maxInt(offset, minInt(newPosition, length))
+  state.Cursor = newPosition
+}
+
+type NewTorCursorJump struct {
+  Direction int
+}
+
+func (action NewTorCursorJump) UpdateState(state *NewTorrentWindowState) {
+  var input []rune
+  switch state.Focus {
+  case FOCUS_URL:
+    input = []rune(state.Url)
+  case FOCUS_PATH:
+    input = []rune(state.Path)
+  }
+
+  switch action.Direction {
+  case 1:
+    state.Cursor = len(input)
+  case -1:
+    offset := maxInt(0, len(input) - state.Width + 1)
+    state.Cursor = maxInt(offset, 0)
+  }
+}
+
 /* Main loop */
 
-func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error) {
+func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmission.Client, errorDrawer func(error)) {
   rows, cols := source.MaxYX()
 
-  height, width := 11, minInt(cols, maxInt(60, cols * 3 / 4))
+  height, width := 10, minInt(cols, maxInt(60, cols * 3 / 4))
   y, x := (rows - height) / 2, (cols - width) / 2
 
   window, err := gc.NewWindow(height, width, y, x)
   window.Keypad(true)
 
   if err != nil {
-    result <- err
+    errorDrawer(err)
     return
   }
 
   // Window state
-  state := &NewTorrentWindowState{}
+  state := &NewTorrentWindowState{ Width: width - 4 }
 
   // Handle user input.
   observer := make(chan gc.Key)
@@ -126,6 +200,14 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error)
         return NewTorMove{ 1 }
       case gc.KEY_UP:
         return NewTorMove{ -1 }
+      case gc.KEY_LEFT:
+        return NewTorCursorMove { -1 }
+      case gc.KEY_RIGHT:
+        return NewTorCursorMove { 1 }
+      case gc.KEY_HOME:
+        return NewTorCursorJump { -1 }
+      case gc.KEY_END:
+        return NewTorCursorJump { 1 }
       default:
         return NewTorChar{ ch }
       }
@@ -157,7 +239,13 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, result chan error)
     input.UpdateState(state)
 
     if state.Result == NEW_RESULT_CONFIRM {
-      break
+      state.Result = NEW_RESULT_NO
+      err := client.AddTorrent(state.Url, state.Path)
+      if err != nil {
+        errorDrawer(fmt.Errorf("Error: %s", err))
+      } else {
+        break
+      }
     } else if state.Result == NEW_RESULT_CANCEL {
       break
     } else {
@@ -181,23 +269,33 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   window.HLine(2, 1, gc.ACS_HLINE, col-2)
 
   // URL
-  window.MovePrintf(3, startX, "URL: ")
+  window.MovePrintf(3, startX, "Torrent file or URL:")
   window.ColorOn(1)
-  window.MovePrintf(4, startX, state.Url)
   urlRunes := []rune(state.Url)
-  window.MovePrintf(4, startX + len(urlRunes), strings.Repeat(" ", width - len(urlRunes)))
+  urlOffset := maxInt(0, len(urlRunes) - width + 1)
+  window.MovePrintf(4, startX, string(urlRunes[urlOffset:]))
+  if urlOffset == 0 {
+    window.MovePrintf(4, startX + len(urlRunes), strings.Repeat(" ", width - len(urlRunes)))
+  } else {
+    window.MovePrintf(4, startX + width - 1, " ")
+  }
   window.ColorOff(1)
 
   // Path
-  window.MovePrintf(5, startX, "Path: ")
+  window.MovePrintf(5, startX, "Download path:")
   window.ColorOn(1)
-  window.MovePrintf(6, startX, state.Path)
   pathRunes := []rune(state.Path)
-  window.MovePrintf(6, startX + len(pathRunes), strings.Repeat(" ", width - len(pathRunes)))
+  pathOffset := maxInt(0, len(pathRunes) - width + 1)
+  window.MovePrintf(6, startX, string(pathRunes[pathOffset:]))
+  if pathOffset == 0 {
+    window.MovePrintf(6, startX + len(pathRunes), strings.Repeat(" ", width - len(pathRunes)))
+  } else {
+    window.MovePrintf(6, startX + width - 1, " ")
+  }
   window.ColorOff(1)
 
   // Controls delimiter
-  window.HLine(8, 1, gc.ACS_HLINE, col-2)
+  window.HLine(7, 1, gc.ACS_HLINE, col-2)
 
   buttonWidth := width / 2
   attribute := gc.A_NORMAL
@@ -209,7 +307,7 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
     attribute = gc.A_NORMAL
   }
   withAttribute(window, attribute, func(window *gc.Window) {
-    window.MovePrintf(9, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
+    window.MovePrintf(8, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
   })
 
   // Cancel
@@ -219,7 +317,7 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
     attribute = gc.A_NORMAL
   }
   withAttribute(window, attribute, func(window *gc.Window) {
-    window.MovePrintf(9, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
+    window.MovePrintf(8, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
   })
 
   // Enable cursor on input fields.
@@ -232,9 +330,9 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   // Move cursor if needed.
   switch state.Focus {
   case FOCUS_URL:
-    window.Move(4, startX + len([]rune(state.Url)))
+    window.Move(4, startX + minInt(state.Cursor - urlOffset, width - 1))
   case FOCUS_PATH:
-    window.Move(6, startX + len(state.Path))
+    window.Move(6, startX + minInt(state.Cursor - pathOffset, width - 1))
   }
 
   window.Refresh()

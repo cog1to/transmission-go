@@ -25,3 +25,7 @@ func withAttribute(window *gc.Window, attr gc.Char, block func(*gc.Window)) {
   block(window)
   window.AttrOff(attr)
 }
+
+func remove(slice []rune, s int) []rune {
+    return append(slice[:s], slice[s+1:]...)
+}
