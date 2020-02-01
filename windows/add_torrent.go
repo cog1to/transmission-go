@@ -38,6 +38,9 @@ type NewTorrentInput interface {
   UpdateState(state *NewTorrentWindowState)
 }
 
+type NewTorBlank struct { }
+func (blank NewTorBlank) UpdateState(state *NewTorrentWindowState) { }
+
 type NewTorChar struct {
   Input gc.Key
 }
@@ -206,10 +209,12 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
         return NewTorCursorMove { -1 }
       case gc.KEY_RIGHT:
         return NewTorCursorMove { 1 }
-      case gc.KEY_HOME:
+      case gc.KEY_HOME, gc.KEY_PAGEUP:
         return NewTorCursorJump { -1 }
-      case gc.KEY_END:
+      case gc.KEY_END, gc.KEY_PAGEDOWN:
         return NewTorCursorJump { 1 }
+      case gc.KEY_F1, gc.KEY_F2, gc.KEY_F3, gc.KEY_F4, gc.KEY_F5, gc.KEY_F6, gc.KEY_F7, gc.KEY_F8, gc.KEY_F9, gc.KEY_F10, gc.KEY_F11, gc.KEY_F12:
+        return NewTorBlank{}
       default:
         return NewTorChar{ ch }
       }
@@ -243,15 +248,7 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
     if state.Result == NEW_RESULT_CONFIRM {
       state.Result = NEW_RESULT_NO
 
-      // Replace '~' with home path
-      url, path := state.Url, state.Path
-      if strings.HasPrefix(url, "~") {
-        url = strings.Replace(url, "~", os.Getenv("HOME"), 1)
-      }
-
-      if strings.HasPrefix(path, "~") {
-        path = strings.Replace(path, "~", os.Getenv("HOME"), 1)
-      }
+      url, path := expandHome(state.Url), expandHome(state.Path)
 
       err := client.AddTorrent(url, path)
       if err != nil {
@@ -351,3 +348,9 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   window.Refresh()
 }
 
+func expandHome(input string) string {
+  if strings.HasPrefix(input, "~") {
+    return strings.Replace(input, "~", os.Getenv("HOME"), 1)
+  }
+  return input
+}

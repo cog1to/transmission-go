@@ -100,18 +100,14 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
   }(out)
 
   // Handle list update.
-  items, err := make(chan *[]transmission.TorrentListItem), make(chan error)
+  items, err := make(chan torrents), make(chan error)
   go func() {
     // First poll.
-    list, e := client.List()
-    err <- e
-    items <- list
+    updateList(client, items, err)
 
     for {
       <-time.After(time.Duration(3) * time.Second)
-      list, e := client.List()
-      err <- e
-      items <- list
+      updateList(client, items, err)
     }
   }()
 
@@ -158,7 +154,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
           state.Offset = maxInt(state.Offset - (state.Rows - INFO_HEIGHT), 0)
           state.Cursor = maxInt(state.Cursor - (state.Rows - INFO_HEIGHT), 0)
         case CURSOR_PAGEDOWN:
-          state.Offset = minInt(state.Offset + state.Rows - INFO_HEIGHT, len(*state.Items) - (state.Rows - INFO_HEIGHT))
+          state.Offset = minInt(state.Offset + state.Rows - INFO_HEIGHT, maxInt(len(*state.Items) - (state.Rows - INFO_HEIGHT), 0))
           state.Cursor = minInt(state.Cursor + state.Rows - INFO_HEIGHT, len(*state.Items) - 1)
         case RESIZE:
           gc.End()
@@ -169,6 +165,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             drawError(screen, err)
           }
           NewTorrentWindow(screen, reader, client, errorDrawer)
+          go updateList(client, list, err)
         }
 
         // Update offset if needed.
@@ -328,7 +325,7 @@ func formatStatus(status int8) string {
   return "Unknown"
 }
 
-func handleOperation(screen *gc.Window, client *transmission.Client, operation interface{}, items chan *[]transmission.TorrentListItem, err chan error) {
+func handleOperation(screen *gc.Window, client *transmission.Client, operation interface{}, items chan torrents, err chan error) {
   var e error
 
   switch operation.(type) {
@@ -349,9 +346,12 @@ func handleOperation(screen *gc.Window, client *transmission.Client, operation i
   if e != nil {
     err <- e
   } else {
-    list, e := client.List()
-    items <- list
-    err <- e
+    updateList(client, items, err)
   }
 }
 
+func updateList(client *transmission.Client, items chan torrents, err chan error) {
+    list, e := client.List()
+    err <- e
+    items <- list
+}
