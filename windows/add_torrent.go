@@ -66,7 +66,7 @@ func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
   }
 
   switch char.Input {
-  case gc.KEY_BACKSPACE:
+  case gc.KEY_BACKSPACE, 0x7f:
     if state.Cursor == 0 {
       return
     } else {

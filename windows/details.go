@@ -7,6 +7,7 @@ import (
   "time"
   "fmt"
   "strings"
+  "strconv"
 )
 
 const DETAILS_HEADER_HEIGHT = 4
@@ -128,8 +129,20 @@ func TorrentDetailsWindow(
         }
       case 'L':
         // Change download limit.
+        limit, err := strconv.Atoi(Prompt(window, reader, "Set download limit (KB):", 6, "0123456789"))
+        if err != nil {
+          e <- err
+        } else {
+          go setDownloadLimit(client, id, limit, details, e)
+        }
       case 'U':
         // Change upload limit.
+        limit, err := strconv.Atoi(Prompt(window, reader, "Set upload limit (KB):", 6, "0123456789"))
+        if err != nil {
+          e <- err
+        } else {
+          go setUploadLimit(client, id, limit, details, e)
+        }
       }
     case torrent := <-details:
       state.Torrent = torrent
@@ -150,6 +163,7 @@ func TorrentDetailsWindow(
 }
 
 func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
+  window.Erase()
   _, col := window.MaxYX()
 
   // Header
@@ -175,8 +189,8 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
     window.MovePrint(1, 0, dataString)
 
     // Speeds.
-    downSpeed, downLimit := formatSpeed(item.DownloadSpeed), formatSpeed(item.DownloadLimit)
-    upSpeed, upLimit := formatSpeed(item.UploadSpeed), formatSpeed(item.UploadLimit)
+    downSpeed, downLimit := formatSpeed(item.DownloadSpeed), formatSpeed(item.DownloadLimit * 1024)
+    upSpeed, upLimit := formatSpeed(item.UploadSpeed), formatSpeed(item.UploadLimit * 1024)
     speedString := fmt.Sprintf("Down: %s (Limit: %s) | Up: %s (Limit: %s)",
       downSpeed,
       downLimit,
@@ -217,6 +231,24 @@ func updatePriority(client *transmission.Client, id int64, ids []int, priority i
 func updateWanted(client *transmission.Client, id int64, ids []int, wanted bool, tor chan *transmission.TorrentDetails, err chan error) {
   e := client.SetWanted(id, ids, wanted)
 
+  if e != nil {
+    err <- e
+  } else {
+    getDetails(client, id, tor, err)
+  }
+}
+
+func setDownloadLimit(client *transmission.Client, id int64, limit int, tor chan *transmission.TorrentDetails, err chan error) {
+  e := client.SetDownloadLimit(id, limit)
+  if e != nil {
+    err <- e
+  } else {
+    getDetails(client, id, tor, err)
+  }
+}
+
+func setUploadLimit(client *transmission.Client, id int64, limit int, tor chan *transmission.TorrentDetails, err chan error) {
+  e := client.SetUploadLimit(id, limit)
   if e != nil {
     err <- e
   } else {

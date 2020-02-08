@@ -267,6 +267,39 @@ func SetWantedRequest(conn Connection, token string, id int64, files []int, want
       "ids": []int64{ id },
       wantedValue: files}}
 }
+
+func SetDownloadLimitRequest(conn Connection, token string, id int64, value int) TRequest {
+  var limited bool
+  if value > 0 {
+    limited = true
+  }
+
+  return TRequest{
+    conn,
+    "torrent-set",
+    token,
+    map[string]interface{}{
+      "ids": []int64{ id },
+      "downloadLimit": value,
+      "downloadLimited": limited}}
+}
+
+func SetUploadLimitRequest(conn Connection, token string, id int64, value int) TRequest {
+  var limited bool
+  if value > 0 {
+    limited = true
+  }
+
+  return TRequest{
+    conn,
+    "torrent-set",
+    token,
+    map[string]interface{}{
+      "ids": []int64{ id },
+      "uploadLimit": value,
+      "uploadLimited": limited}}
+}
+
 /* Client */
 
 type Client struct {
@@ -399,6 +432,10 @@ func (client *Client) TorrentDetails(id int64) (*TorrentDetails, error) {
     "sizeWhenDone",
     "status",
     "uploadRatio",
+    "downloadLimit",
+    "downloadLimited",
+    "uploadLimit",
+    "uploadLimited",
     "files",
     "fileStats"}
 
@@ -446,8 +483,8 @@ func (client *Client) TorrentDetails(id int64) (*TorrentDetails, error) {
     internalTorrent.SizeWhenDone,
     internalTorrent.LeftUntilDone,
     internalTorrent.Status,
-    internalTorrent.UploadLimit,
     internalTorrent.DownloadLimit,
+    internalTorrent.UploadLimit,
     files}
 
   return &torrent, nil
@@ -478,6 +515,50 @@ func (client *Client) SetPriority(id int64, files []int, priority int) error {
 func (client *Client) SetWanted(id int64, files []int, wanted bool) error {
   body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return SetWantedRequest(conn, token, id, files, wanted).ToRequest()
+  })
+
+  if err != nil {
+    return err
+  }
+
+  var response TorrentListResponse
+  jsonErr := json.Unmarshal(body, &response)
+  if jsonErr != nil {
+    return fmt.Errorf("Error: %s", jsonErr)
+  }
+
+  if (response.Result != "success") {
+    return fmt.Errorf("Error: %s", response.Result)
+  }
+
+  return nil
+}
+
+func (client *Client) SetDownloadLimit(id int64, limit int) error {
+  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return SetDownloadLimitRequest(conn, token, id, limit).ToRequest()
+  })
+
+  if err != nil {
+    return err
+  }
+
+  var response TorrentListResponse
+  jsonErr := json.Unmarshal(body, &response)
+  if jsonErr != nil {
+    return fmt.Errorf("Error: %s", jsonErr)
+  }
+
+  if (response.Result != "success") {
+    return fmt.Errorf("Error: %s", response.Result)
+  }
+
+  return nil
+}
+
+func (client *Client) SetUploadLimit(id int64, limit int) error {
+  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return SetUploadLimitRequest(conn, token, id, limit).ToRequest()
   })
 
   if err != nil {
