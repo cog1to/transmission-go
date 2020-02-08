@@ -5,7 +5,6 @@ import (
   "time"
   "../transmission"
   gc "../goncurses"
-  wchar "../cgo.wchar"
   "os"
   "os/signal"
   "syscall"
@@ -41,13 +40,10 @@ type AddOperation struct {
 }
 
 type ListWindowState struct {
-  Items torrents
-  Offset int
-  Cursor int
-  Selection []int
   Rows, Cols int
   PendingOperation *ListOperation
   Error error
+  List List
 }
 
 const (
@@ -89,6 +85,8 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- SELECT
       case 'c':
         control <- CLEAR_SELECT
+      case 'l', gc.KEY_RIGHT, gc.KEY_RETURN:
+        control <- DETAILS
       }
     }
   }(out)
@@ -117,10 +115,42 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
     }
   }()
 
+  formatter := func(torrent interface{}, width int) string {
+    item := torrent.(transmission.TorrentListItem)
+
+    maxTitleLength := maxInt(0, width - 63)
+    title := []rune(item.Name)
+
+    croppedTitleLength := minInt(maxTitleLength, len(title))
+    croppedTitle := title[0:croppedTitleLength]
+    spacesLength := maxTitleLength - croppedTitleLength
+
+    format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+    return fmt.Sprintf(format,
+      item.Id,
+      string(croppedTitle),
+      strings.Repeat(" ", spacesLength),
+      fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0),
+      formatSize(item.SizeWhenDone),
+      formatStatus(item.Status),
+      item.Ratio,
+      formatSpeed(item.DownloadSpeed),
+      formatSpeed(item.UploadSpeed))
+  }
+
   // Initial window state.
-  state := &ListWindowState{}
-  state.Offset, state.Cursor = 0, -1
-  state.Rows, state.Cols = screen.MaxYX()
+  state := &ListWindowState{
+    List: List{
+      screen,
+      formatter,
+      HEADER_HEIGHT,
+      FOOTER_HEIGHT,
+      0,
+      0,
+      0,
+      []int{},
+      0,
+      []interface{}{}}}
 
   // Handle updates and control.
   func(control chan input, err chan error, list chan torrents) {
@@ -131,77 +161,78 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         drawList(screen, *state)
       case items := <-list:
         if items != nil {
-          state.Items = items
+          state.List.SetItems(generalizeTorrents(*items))
         } else {
-          state.Items = &[]transmission.TorrentListItem{}
+          state.List.SetItems([]interface{}{})
         }
-        state.Cursor = minInt(len(*state.Items) - 1, state.Cursor)
         drawList(screen, *state)
       case c := <-control:
         switch c {
         case EXIT:
           return
         case DELETE, DELETE_WITH_DATA:
-          if state.Cursor == -1 {
+          if state.List.Cursor == -1 {
             break
           }
 
           if op := state.PendingOperation; op != nil {
-            if len(state.Selection) == 0 {
+            if len(state.List.Selection) == 0 {
               go handleOperation(screen, client, *op, list, err)
               state.PendingOperation = nil
             } else {
-              state.Selection = []int{}
+              state.List.Selection = []int{}
               go handleOperation(screen, client, *op, list, err)
               state.PendingOperation = nil
             }
           } else {
-            if len(state.Selection) == 0 {
-              state.PendingOperation = &ListOperation{ c, (*state.Items)[state.Cursor:state.Cursor+1] }
+            if len(state.List.Selection) == 0 {
+              state.PendingOperation = &ListOperation{ c, toTorrentList(state.List.Items[state.List.Cursor:state.List.Cursor+1]) }
             } else {
-              items := make([]transmission.TorrentListItem, len(state.Selection))
-              for i, index := range state.Selection {
-                items[i] = (*state.Items)[index]
+              items := make([]transmission.TorrentListItem, len(state.List.Selection))
+              for i, index := range state.List.Selection {
+                items[i] = state.List.Items[index].(transmission.TorrentListItem)
               }
               state.PendingOperation = &ListOperation{ c, items }
             }
           }
         case CURSOR_UP:
-          state.Cursor, state.PendingOperation = maxInt(0, state.Cursor - 1), nil
+          state.List.MoveCursor(-1)
+          state.PendingOperation = nil
         case CURSOR_DOWN:
-          state.Cursor, state.PendingOperation = minInt(state.Cursor + 1, len(*state.Items) - 1), nil
+          state.List.MoveCursor(1)
+          state.PendingOperation = nil
         case CURSOR_PAGEUP:
-          state.Offset = maxInt(state.Offset - (state.Rows - INFO_HEIGHT), 0)
-          state.Cursor = maxInt(state.Cursor - (state.Rows - INFO_HEIGHT), 0)
+          state.List.Page(-1)
+          state.PendingOperation = nil
         case CURSOR_PAGEDOWN:
-          state.Offset = minInt(state.Offset + state.Rows - INFO_HEIGHT, maxInt(len(*state.Items) - (state.Rows - INFO_HEIGHT), 0))
-          state.Cursor = minInt(state.Cursor + state.Rows - INFO_HEIGHT, len(*state.Items) - 1)
+          state.List.Page(1)
+          state.PendingOperation = nil
         case RESIZE:
           gc.End()
           screen.Refresh()
-          state.Rows, state.Cols = screen.MaxYX()
+          state.List.UpdateOffset()
         case ADD:
+          state.PendingOperation = nil
           errorDrawer := func(err error) {
             drawError(screen, err)
           }
           NewTorrentWindow(screen, reader, client, errorDrawer)
           go updateList(client, list, err)
         case SELECT:
-          if contains(state.Selection, state.Cursor) {
-            state.Selection = removeInt(state.Selection, state.Cursor)
-          } else {
-            state.Selection = append(state.Selection, state.Cursor)
-          }
+          state.List.Select()
           state.PendingOperation = nil
         case CLEAR_SELECT:
-          state.Selection = []int{}
-        }
-
-        // Update offset if needed.
-        if state.Cursor > (state.Rows - INFO_HEIGHT) + state.Offset - 1 {
-          state.Offset = minInt(state.Offset + 1, len(*state.Items) - (state.Rows - INFO_HEIGHT))
-        } else if state.Cursor < state.Offset {
-          state.Offset = maxInt(state.Offset - 1, 0)
+          state.List.ClearSelection()
+          state.PendingOperation = nil
+        case DETAILS:
+          if state.List.Cursor > -1 {
+            item := state.List.Items[state.List.Cursor]
+            torrent := item.(transmission.TorrentListItem)
+            errorDrawer := func(err error) {
+              drawError(screen, err)
+            }
+            TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id)
+          }
         }
 
         // Redraw.
@@ -214,66 +245,16 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
 }
 
 func drawList(window *gc.Window, state ListWindowState) {
-  if state.Items == nil {
-    return
-  }
+  row, col := window.MaxYX()
 
-  row, col := state.Rows, state.Cols
   maxTitleLength := maxInt(0, col - 63)
-  format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
 
   // Legend.
   legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
   window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "Size", "Status", "Ratio", "Down", "Up")
   window.HLine(1, 0, gc.ACS_HLINE, col)
 
-  // List.
-  x, y := 0, HEADER_HEIGHT
-  for index, item := range (*state.Items)[state.Offset:] {
-    title := []rune(item.Name)
-
-    croppedTitleLength := minInt(maxTitleLength, len(title))
-    croppedTitle := title[0:croppedTitleLength]
-    spacesLength := maxTitleLength - croppedTitleLength
-
-    var attribute gc.Char
-    if index + state.Offset == state.Cursor {
-      attribute = gc.A_REVERSE
-    } else {
-      attribute = gc.A_NORMAL
-    }
-    if contains(state.Selection, index + state.Offset) {
-      attribute = attribute | gc.A_BOLD
-    }
-
-    withAttribute(window, attribute, func(window *gc.Window) {
-      output := fmt.Sprintf(format,
-        item.Id,
-        string(croppedTitle),
-        strings.Repeat(" ", spacesLength),
-        fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0),
-        formatSize(item.SizeWhenDone),
-        formatStatus(item.Status),
-        item.Ratio,
-        formatSpeed(item.DownloadSpeed),
-        formatSpeed(item.UploadSpeed))
-
-        ws, convertError := wchar.FromGoString(output)
-        if (convertError == nil) {
-          window.MovePrintW(y, x, ws)
-        }
-    })
-
-    y += 1
-    if y >= row - FOOTER_HEIGHT {
-      break
-    }
-  }
-
-  // Clear remaining lines if needed.
-  for index := y; index < row - FOOTER_HEIGHT; index++ {
-    window.HLine(index, 0, ' ', col)
-  }
+  state.List.Draw()
 
   // Status.
   window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
@@ -316,54 +297,6 @@ func drawError(window *gc.Window, err error) {
   window.Refresh()
 }
 
-func formatSize(size int64) string {
-  switch true {
-  case size >= (1024 * 1024 * 1024):
-    return fmt.Sprintf("%.2fGB", float64(size)/float64(1024 * 1024 * 1024))
-  case size >= (1024 * 1024):
-    return fmt.Sprintf("%.2fMB", float64(size)/float64(1024 * 1024))
-  case size >= 1024:
-    return fmt.Sprintf("%.2fKB", float64(size)/float64(1024))
-  default:
-    return fmt.Sprintf("%dB", size)
-  }
-}
-
-func formatSpeed(speed float32) string {
-  switch true {
-  case speed == 0:
-    return "0"
-  case speed >= (1024 * 1024 * 1024):
-    return fmt.Sprintf("%.2fGB", speed/float32(1024 * 1024 * 1024))
-  case speed >= (1024 * 1024):
-    return fmt.Sprintf("%.2fMB", speed/float32(1024 * 1024))
-  case speed >= 1024:
-    return fmt.Sprintf("%.2fKB", speed/1024)
-  default:
-    return fmt.Sprintf("%.2fB", speed)
-  }
-}
-
-func formatStatus(status int8) string {
-  switch status {
-  case transmission.TR_STATUS_STOPPED:
-    return "Stopped"
-  case transmission.TR_STATUS_CHECK_WAIT:
-    return "Check queue"
-  case transmission.TR_STATUS_CHECK:
-    return "Checking"
-  case transmission.TR_STATUS_DOWNLOAD_WAIT:
-    return "In Queue"
-  case transmission.TR_STATUS_DOWNLOAD:
-    return "Download"
-  case transmission.TR_STATUS_SEED_WAIT:
-    return "Seed queue"
-  case transmission.TR_STATUS_SEED:
-    return "Seeding"
-  }
-  return "Unknown"
-}
-
 func handleOperation(screen *gc.Window, client *transmission.Client, operation interface{}, items chan torrents, err chan error) {
   var e error
 
@@ -397,9 +330,9 @@ func handleOperation(screen *gc.Window, client *transmission.Client, operation i
 }
 
 func updateList(client *transmission.Client, items chan torrents, err chan error) {
-    list, e := client.List()
-    err <- e
-    items <- list
+  list, e := client.List()
+  err <- e
+  items <- list
 }
 
 func mapToString(slice []transmission.TorrentListItem) []string {
