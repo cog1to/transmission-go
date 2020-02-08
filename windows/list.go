@@ -71,9 +71,9 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- DELETE_WITH_DATA
       case gc.KEY_RESIZE:
         control <- RESIZE
-      case gc.KEY_UP:
+      case gc.KEY_UP, 'k':
         control <- CURSOR_UP
-      case gc.KEY_DOWN:
+      case gc.KEY_DOWN, 'j':
         control <- CURSOR_DOWN
       case gc.KEY_PAGEDOWN:
         control <- CURSOR_PAGEDOWN

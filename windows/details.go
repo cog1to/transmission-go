@@ -126,9 +126,9 @@ func TorrentDetailsWindow(
           ids, wanted := idsAndNextWanted(files)
           go updateWanted(client, id, ids, wanted, details, e)
         }
-      case 'd':
+      case 'L':
         // Change download limit.
-      case 'u':
+      case 'U':
         // Change upload limit.
       }
     case torrent := <-details:
