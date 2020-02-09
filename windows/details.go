@@ -129,19 +129,25 @@ func TorrentDetailsWindow(
         }
       case 'L':
         // Change download limit.
-        limit, err := strconv.Atoi(Prompt(window, reader, "Set download limit (KB):", 6, "0123456789"))
-        if err != nil {
-          e <- err
-        } else {
-          go setDownloadLimit(client, id, limit, details, e)
+        output := Prompt(window, reader, "Set download limit (KB):", 6, "0123456789")
+        if len(output) > 0 {
+          limit, err := strconv.Atoi(output)
+          if err != nil {
+            go func() { e <- err }()
+          } else {
+            go setDownloadLimit(client, id, limit, details, e)
+          }
         }
       case 'U':
         // Change upload limit.
-        limit, err := strconv.Atoi(Prompt(window, reader, "Set upload limit (KB):", 6, "0123456789"))
-        if err != nil {
-          e <- err
-        } else {
-          go setUploadLimit(client, id, limit, details, e)
+        output := Prompt(window, reader, "Set upload limit (KB):", 6, "0123456789")
+        if len(output) > 0 {
+          limit, err := strconv.Atoi(output)
+          if err != nil {
+            go func() { e <- err }()
+          } else {
+            go setUploadLimit(client, id, limit, details, e)
+          }
         }
       }
     case torrent := <-details:
