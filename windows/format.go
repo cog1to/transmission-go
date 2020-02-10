@@ -33,6 +33,14 @@ func formatSpeed(speed float32) string {
   }
 }
 
+func formatSpeedWithFlag(speed float32, honored bool) string {
+  if honored {
+    return formatSpeed(speed)
+  } else {
+    return "0"
+  }
+}
+
 func formatStatus(status int8) string {
   switch status {
   case transmission.TR_STATUS_STOPPED:

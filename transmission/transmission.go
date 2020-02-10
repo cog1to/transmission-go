@@ -147,7 +147,9 @@ type TorrentDetailsInternal struct {
   LeftUntilDone int64          `json:"leftUntilDone"`
   Status int8                  `json:"status"`
   DownloadLimit float32        `json:"downloadLimit"`
+  DownloadLimited bool         `json:"downloadLimited"`
   UploadLimit float32          `json:"uploadLimit"`
+  UploadLimited bool           `json:"uploadLimited"`
   Files *[]TorrentFileInternal          `json:"files"`
   FileStats *[]TorrentFileStatsInternal `json:"fileStats"`
 }
@@ -163,7 +165,9 @@ type TorrentDetails struct {
   LeftUntilDone int64
   Status int8
   DownloadLimit float32
+  DownloadLimited bool
   UploadLimit float32
+  UploadLimited bool
   Files []TorrentFile
 }
 
@@ -484,7 +488,9 @@ func (client *Client) TorrentDetails(id int64) (*TorrentDetails, error) {
     internalTorrent.LeftUntilDone,
     internalTorrent.Status,
     internalTorrent.DownloadLimit,
+    internalTorrent.DownloadLimited,
     internalTorrent.UploadLimit,
+    internalTorrent.UploadLimited,
     files}
 
   return &torrent, nil

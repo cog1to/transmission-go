@@ -189,8 +189,9 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
     window.MovePrint(1, 0, dataString)
 
     // Speeds.
-    downSpeed, downLimit := formatSpeed(item.DownloadSpeed), formatSpeed(item.DownloadLimit * 1024)
-    upSpeed, upLimit := formatSpeed(item.UploadSpeed), formatSpeed(item.UploadLimit * 1024)
+    downSpeed, downLimit := formatSpeed(item.DownloadSpeed), formatSpeedWithFlag(item.DownloadLimit * 1024, item.DownloadLimited)
+    upSpeed, upLimit := formatSpeed(item.UploadSpeed), formatSpeedWithFlag(item.UploadLimit * 1024, item.UploadLimited)
+
     speedString := fmt.Sprintf("Down: %s (Limit: %s) | Up: %s (Limit: %s)",
       downSpeed,
       downLimit,
