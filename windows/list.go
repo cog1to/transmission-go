@@ -27,6 +27,7 @@ const (
   ADD = iota
   SELECT = iota
   CLEAR_SELECT = iota
+  PAUSE = iota
 )
 
 type ListOperation struct {
@@ -34,9 +35,9 @@ type ListOperation struct {
   Items []transmission.TorrentListItem
 }
 
-type AddOperation struct {
-  Url string
-  Path string
+type ListActiveOperation struct {
+  Active bool
+  ListOperation
 }
 
 type ListWindowState struct {
@@ -87,6 +88,8 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- CLEAR_SELECT
       case 'l', gc.KEY_RIGHT, gc.KEY_RETURN:
         control <- DETAILS
+      case 'p':
+        control <- PAUSE
       }
     }
   }(out)
@@ -175,24 +178,16 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             break
           }
 
-          if op := state.PendingOperation; op != nil {
-            if len(state.List.Selection) == 0 {
-              go handleOperation(screen, client, *op, list, err)
-              state.PendingOperation = nil
-            } else {
-              state.List.Selection = []int{}
-              go handleOperation(screen, client, *op, list, err)
-              state.PendingOperation = nil
-            }
+          if op := state.PendingOperation; op != nil && op.Operation == c {
+            state.List.Selection = []int{}
+            go handleOperation(screen, client, *op, list, err)
+            state.PendingOperation = nil
           } else {
-            if len(state.List.Selection) == 0 {
-              state.PendingOperation = &ListOperation{ c, toTorrentList(state.List.Items[state.List.Cursor:state.List.Cursor+1]) }
-            } else {
-              items := make([]transmission.TorrentListItem, len(state.List.Selection))
-              for i, index := range state.List.Selection {
-                items[i] = state.List.Items[index].(transmission.TorrentListItem)
-              }
-              state.PendingOperation = &ListOperation{ c, items }
+            items := state.List.GetSelection()
+            if len(items) > 0 {
+              state.PendingOperation = &ListOperation{
+                c,
+                toTorrentList(items)}
             }
           }
         case CURSOR_UP:
@@ -232,6 +227,17 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
               drawError(screen, err)
             }
             TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id)
+          }
+        case PAUSE:
+          items := state.List.GetSelection()
+          if len(items) > 0 {
+            torrents := toTorrentList(items)
+            _, isActive := idsAndNextState(torrents)
+            op := ListActiveOperation{
+                isActive,
+                ListOperation{
+                  c, torrents}}
+            go handleOperation(screen, client, op, list, err)
           }
         }
 
@@ -301,15 +307,13 @@ func handleOperation(screen *gc.Window, client *transmission.Client, operation i
   var e error
 
   switch operation.(type) {
+  case ListActiveOperation:
+    lop := operation.(ListActiveOperation)
+    ids := mapToIds(lop.Items)
+    e = client.UpdateActive(ids, lop.Active)
   case ListOperation:
     lop := operation.(ListOperation)
-    ids := func() []int64 {
-      output := make([]int64, len(lop.Items))
-      for index, item := range lop.Items {
-        output[index] = item.Id
-      }
-      return output
-    }()
+    ids := mapToIds(lop.Items)
     switch lop.Operation {
     case DELETE:
       e = client.Delete(ids, false)
@@ -342,3 +346,23 @@ func mapToString(slice []transmission.TorrentListItem) []string {
   }
   return output
 }
+
+func mapToIds(slice []transmission.TorrentListItem) []int64 {
+  output := make([]int64, len(slice))
+  for index, item := range slice {
+    output[index] = item.Id
+  }
+  return output
+}
+
+func idsAndNextState(torrents []transmission.TorrentListItem) ([]int64, bool) {
+  isActive := false
+  ids := make([]int64, len(torrents))
+  for i, torrent := range torrents {
+    isActive = isActive || torrent.Status != transmission.TR_STATUS_STOPPED
+    ids[i] = torrent.Id
+  }
+
+  return ids, !isActive
+}
+
