@@ -78,6 +78,8 @@ const (
   TR_PRIORITY_LOW = -1
 )
 
+/* Responses */
+
 type TorrentListItem struct {
   Id int64              `json:"id"`
   Name string           `json:"name"`
@@ -137,19 +139,19 @@ type TorrentFile struct {
 }
 
 type TorrentDetailsInternal struct {
-  Id int64                     `json:"id"`
-  Name string                  `json:"name"`
-  UploadSpeed float32          `json:"rateUpload"`
-  DownloadSpeed float32        `json:"rateDownload"`
-  Ratio float32                `json:"uploadRatio"`
-  Eta int32                    `json:"eta"`
-  SizeWhenDone int64           `json:"sizeWhenDone"`
-  LeftUntilDone int64          `json:"leftUntilDone"`
-  Status int8                  `json:"status"`
-  DownloadLimit float32        `json:"downloadLimit"`
-  DownloadLimited bool         `json:"downloadLimited"`
-  UploadLimit float32          `json:"uploadLimit"`
-  UploadLimited bool           `json:"uploadLimited"`
+  Id int64                              `json:"id"`
+  Name string                           `json:"name"`
+  UploadSpeed float32                   `json:"rateUpload"`
+  DownloadSpeed float32                 `json:"rateDownload"`
+  Ratio float32                         `json:"uploadRatio"`
+  Eta int32                             `json:"eta"`
+  SizeWhenDone int64                    `json:"sizeWhenDone"`
+  LeftUntilDone int64                   `json:"leftUntilDone"`
+  Status int8                           `json:"status"`
+  DownloadLimit int                     `json:"downloadLimit"`
+  DownloadLimited bool                  `json:"downloadLimited"`
+  UploadLimit int                       `json:"uploadLimit"`
+  UploadLimited bool                    `json:"uploadLimited"`
   Files *[]TorrentFileInternal          `json:"files"`
   FileStats *[]TorrentFileStatsInternal `json:"fileStats"`
 }
@@ -164,9 +166,9 @@ type TorrentDetails struct {
   SizeWhenDone int64
   LeftUntilDone int64
   Status int8
-  DownloadLimit float32
+  DownloadLimit int
   DownloadLimited bool
-  UploadLimit float32
+  UploadLimit int
   UploadLimited bool
   Files []TorrentFile
 }
@@ -180,6 +182,25 @@ type TorrentDetailsResponse struct {
   Tag string                                `json:"tag"`
   Arguments TorrentDetailsResponseArguments `json:"arguments"`
 }
+
+type SessionSettings struct {
+  UploadSpeedLimit int           `json:"speed-limit-up"`
+  UploadSpeedLimitEnabled bool   `json:"speed-limit-up-enabled"`
+  DownloadSpeedLimit int         `json:"speed-limit-down"`
+  DownloadSpeedLimitEnabled bool `json:"speed-limit-down-enabled"`
+}
+
+type SessionSettingsResponse struct {
+  Result string              `json:"result"`
+  Tag string                 `json:"tag"`
+  Arguments *SessionSettings `json:"arguments"`
+}
+
+type SetSessionSettingsResponse struct {
+  Result string `json:"result"`
+  Tag string    `json:"tag"`
+}
+
 /* Requests */
 
 func RefreshRequest(conn Connection) TRequest {
@@ -320,6 +341,49 @@ func StopTorrentRequest(conn Connection, token string, ids []int64) TRequest {
     token,
     map[string]interface{}{
       "ids": ids}}
+}
+
+func GetSessionSettingsRequest(conn Connection, token string) TRequest {
+  return TRequest{
+    conn,
+    "session-get",
+    token,
+    map[string]interface{}{
+      "fields": []string{
+        "speed-limit-up",
+        "speed-limit-up-enabled",
+        "speed-limit-down",
+        "speed-limit-down-enabled"}}}
+}
+
+func SetGlobalUploadLimitRequest(conn Connection, token string, value int) TRequest {
+  var limited bool
+  if value > 0 {
+    limited = true
+  }
+
+  return TRequest{
+    conn,
+    "session-set",
+    token,
+    map[string]interface{}{
+      "speed-limit-up": value,
+      "speed-limit-up-enabled": limited}}
+}
+
+func SetGlobalDownloadLimitRequest(conn Connection, token string, value int) TRequest {
+  var limited bool
+  if value > 0 {
+    limited = true
+  }
+
+  return TRequest{
+    conn,
+    "session-set",
+    token,
+    map[string]interface{}{
+      "speed-limit-down": value,
+      "speed-limit-down-enabled": limited}}
 }
 
 /* Client */
@@ -626,4 +690,70 @@ func (client *Client) UpdateActive(ids []int64, active bool) error {
   }
 
   return nil
+}
+
+func (client *Client) SetGlobalUploadLimit(limit int) error {
+  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return SetGlobalUploadLimitRequest(conn, token, limit).ToRequest()
+  })
+
+  if err != nil {
+    return err
+  }
+
+  var response SetSessionSettingsResponse
+  jsonErr := json.Unmarshal(body, &response)
+  if jsonErr != nil {
+    return fmt.Errorf("Error: %s", jsonErr)
+  }
+
+  if (response.Result != "success") {
+    return fmt.Errorf("Error: %s", response.Result)
+  }
+
+  return nil
+}
+
+func (client *Client) SetGlobalDownloadLimit(limit int) error {
+  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return SetGlobalDownloadLimitRequest(conn, token, limit).ToRequest()
+  })
+
+  if err != nil {
+    return err
+  }
+
+  var response SetSessionSettingsResponse
+  jsonErr := json.Unmarshal(body, &response)
+  if jsonErr != nil {
+    return fmt.Errorf("Error: %s", jsonErr)
+  }
+
+  if (response.Result != "success") {
+    return fmt.Errorf("Error: %s", response.Result)
+  }
+
+  return nil
+}
+
+func (client *Client) GetSessionSettings() (*SessionSettings, error) {
+  body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
+    return GetSessionSettingsRequest(conn, token).ToRequest()
+  })
+
+  if err != nil {
+    return nil, err
+  }
+
+  var response SessionSettingsResponse
+  jsonErr := json.Unmarshal(body, &response)
+  if jsonErr != nil {
+    return nil, fmt.Errorf("Error: %s", jsonErr)
+  }
+
+  if (response.Result != "success") {
+    return nil, fmt.Errorf("Error: %s", response.Result)
+  }
+
+  return response.Arguments, nil
 }

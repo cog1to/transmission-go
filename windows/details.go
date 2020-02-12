@@ -7,7 +7,6 @@ import (
   "time"
   "fmt"
   "strings"
-  "strconv"
 )
 
 const DETAILS_HEADER_HEIGHT = 4
@@ -129,26 +128,16 @@ func TorrentDetailsWindow(
         }
       case 'L':
         // Change download limit.
-        output := Prompt(window, reader, "Set download limit (KB):", 6, "0123456789")
-        if len(output) > 0 {
-          limit, err := strconv.Atoi(output)
-          if err != nil {
-            go func() { e <- err }()
-          } else {
-            go setDownloadLimit(client, id, limit, details, e)
-          }
-        }
+        intPrompt(window, reader, "Set download limit (KB):",
+          state.Torrent.DownloadLimit, state.Torrent.DownloadLimited,
+          func(limit int) { go setDownloadLimit(client, id, limit, details, e) },
+          func(err error) { go func() { e <- err }() })
       case 'U':
         // Change upload limit.
-        output := Prompt(window, reader, "Set upload limit (KB):", 6, "0123456789")
-        if len(output) > 0 {
-          limit, err := strconv.Atoi(output)
-          if err != nil {
-            go func() { e <- err }()
-          } else {
-            go setUploadLimit(client, id, limit, details, e)
-          }
-        }
+        intPrompt(window, reader, "Set upload limit (KB):",
+          state.Torrent.UploadLimit, state.Torrent.UploadLimited,
+          func(limit int) { go setUploadLimit(client, id, limit, details, e) },
+          func(err error) { go func() { e <- err }() })
       }
     case torrent := <-details:
       state.Torrent = torrent
@@ -195,8 +184,10 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
     window.MovePrint(1, 0, dataString)
 
     // Speeds.
-    downSpeed, downLimit := formatSpeed(item.DownloadSpeed), formatSpeedWithFlag(item.DownloadLimit * 1024, item.DownloadLimited)
-    upSpeed, upLimit := formatSpeed(item.UploadSpeed), formatSpeedWithFlag(item.UploadLimit * 1024, item.UploadLimited)
+    downSpeed := formatSpeed(item.DownloadSpeed)
+    downLimit := formatSpeedWithFlag(float32(item.DownloadLimit * 1024), item.DownloadLimited)
+    upSpeed := formatSpeed(item.UploadSpeed)
+    upLimit := formatSpeedWithFlag(float32(item.UploadLimit * 1024), item.UploadLimited)
 
     speedString := fmt.Sprintf("Down: %s (Limit: %s) | Up: %s (Limit: %s)",
       downSpeed,

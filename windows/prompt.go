@@ -14,7 +14,7 @@ type PromptState struct {
 
 const CONTROLS_TEXT = "RETURN - Confirm | ESC - Cancel"
 
-func Prompt(parent *gc.Window, reader *InputReader, title string, limit int, charset string) string {
+func Prompt(parent *gc.Window, reader *InputReader, title string, limit int, charset string, initial string) string {
   rows, cols := parent.MaxYX()
   height, width := 5, maxInt(4 + len(title) + 1 + limit + 1, len(CONTROLS_TEXT) + 4)
   y, x := (rows - height) / 2, (cols - width) / 2
@@ -34,7 +34,7 @@ func Prompt(parent *gc.Window, reader *InputReader, title string, limit int, cha
   gc.Cursor(1)
   defer gc.Cursor(0)
 
-  state := &PromptState{ "", title, limit }
+  state := &PromptState{ initial, title, limit }
   Loop: for {
     drawPrompt(prompt, *state)
 

@@ -3,6 +3,8 @@ package windows
 import (
   gc "../goncurses"
   transmission "../transmission"
+  "fmt"
+  "strconv"
 )
 
 func minInt(x, y int) int {
@@ -80,3 +82,21 @@ func toFileList(items []interface{}) []transmission.TorrentFile {
   }
   return output
 }
+
+func intPrompt(window *gc.Window, reader *InputReader, title string, value int, flag bool, onFinish func(int), onError func(error)) {
+  var initialValue string
+  if flag && value > 0 {
+    initialValue = fmt.Sprintf("%d", value)
+  }
+
+  output := Prompt(window, reader, title, 6, "0123456789", initialValue)
+  if len(output) > 0 {
+    limit, e := strconv.Atoi(output)
+    if e != nil {
+      onError(e)
+    } else {
+      onFinish(limit)
+    }
+  }
+}
+

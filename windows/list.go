@@ -12,6 +12,7 @@ import (
 )
 
 type torrents = *[]transmission.TorrentListItem
+type settings = *transmission.SessionSettings
 type input int
 
 const (
@@ -28,7 +29,11 @@ const (
   SELECT = iota
   CLEAR_SELECT = iota
   PAUSE = iota
+  DOWN_LIMIT = iota
+  UP_LIMIT = iota
 )
+
+/* Operations */
 
 type ListOperation struct {
   Operation input
@@ -45,7 +50,10 @@ type ListWindowState struct {
   PendingOperation *ListOperation
   Error error
   List List
+  Settings settings
 }
+
+/* Render loop */
 
 const (
   INFO_HEIGHT = 4
@@ -57,6 +65,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
   reader := NewInputReader(screen)
   observer := make(chan gc.Key)
   reader.AddObserver(observer)
+  defer reader.RemoveObserver(observer)
 
   // Handle user input.
   out := make(chan input)
@@ -90,6 +99,10 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- DETAILS
       case 'p':
         control <- PAUSE
+      case 'L':
+        control <- DOWN_LIMIT
+      case 'U':
+        control <- UP_LIMIT
       }
     }
   }(out)
@@ -115,6 +128,18 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
     for {
       <-time.After(time.Duration(3) * time.Second)
       updateList(client, items, err)
+    }
+  }()
+
+  // Handle session update.
+  session := make(chan settings)
+  go func() {
+    // First poll.
+    updateSession(client, session, err)
+
+    for {
+      <-time.After(time.Duration(3) * time.Second)
+      updateSession(client, session, err)
     }
   }()
 
@@ -162,6 +187,8 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
       case e := <-err:
         state.Error = e
         drawList(screen, *state)
+      case s := <-session:
+        state.Settings = s
       case items := <-list:
         if items != nil {
           state.List.SetItems(generalizeTorrents(*items))
@@ -174,10 +201,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         case EXIT:
           return
         case DELETE, DELETE_WITH_DATA:
-          if state.List.Cursor == -1 {
-            break
-          }
-
+          // Schedule selected items' deletion. To prevent accidental deletes, command needs to be confirmed.
           if op := state.PendingOperation; op != nil && op.Operation == c {
             state.List.Selection = []int{}
             go handleOperation(screen, client, *op, list, err)
@@ -203,10 +227,12 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
           state.List.Page(1)
           state.PendingOperation = nil
         case RESIZE:
+          // Resize window.
           gc.End()
           screen.Refresh()
           state.List.UpdateOffset()
         case ADD:
+          // Open new torrent dialog.
           state.PendingOperation = nil
           errorDrawer := func(err error) {
             drawError(screen, err)
@@ -214,13 +240,16 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
           NewTorrentWindow(screen, reader, client, errorDrawer)
           go updateList(client, list, err)
         case SELECT:
+          // Toggle selection for item under cursor.
           state.List.Select()
           state.PendingOperation = nil
         case CLEAR_SELECT:
+          // Clear selection.
           state.List.ClearSelection()
           state.PendingOperation = nil
         case DETAILS:
-          if state.List.Cursor > -1 {
+          // Go to torrent details.
+          if state.List.Cursor >= 0 {
             item := state.List.Items[state.List.Cursor]
             torrent := item.(transmission.TorrentListItem)
             errorDrawer := func(err error) {
@@ -229,6 +258,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id)
           }
         case PAUSE:
+          // Pause/Start selected torrents.
           items := state.List.GetSelection()
           if len(items) > 0 {
             torrents := toTorrentList(items)
@@ -239,6 +269,18 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
                   c, torrents}}
             go handleOperation(screen, client, op, list, err)
           }
+        case DOWN_LIMIT:
+          // Set global download limit.
+          intPrompt(screen, reader, "Global download limit (KB):",
+            state.Settings.DownloadSpeedLimit, state.Settings.DownloadSpeedLimitEnabled,
+            func(limit int) { go setGlobalDownloadLimit(client, limit, session, err) },
+            func(err error) { drawError(screen, err) })
+        case UP_LIMIT:
+          // Set global upload limit.
+          intPrompt(screen, reader, "Global upload limit (KB):",
+            state.Settings.UploadSpeedLimit, state.Settings.UploadSpeedLimitEnabled,
+            func(limit int) { go setGlobalUploadLimit(client, limit, session, err) },
+            func(err error) { drawError(screen, err) })
         }
 
         // Redraw.
@@ -247,7 +289,6 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
     }
   }(out, err, items)
 
-  reader.RemoveObserver(observer)
 }
 
 func drawList(window *gc.Window, state ListWindowState) {
@@ -303,6 +344,8 @@ func drawError(window *gc.Window, err error) {
   window.Refresh()
 }
 
+/* Network */
+
 func handleOperation(screen *gc.Window, client *transmission.Client, operation interface{}, items chan torrents, err chan error) {
   var e error
 
@@ -338,6 +381,34 @@ func updateList(client *transmission.Client, items chan torrents, err chan error
   err <- e
   items <- list
 }
+
+func setGlobalDownloadLimit(client *transmission.Client, limit int, session chan settings, err chan error) {
+  e := client.SetGlobalDownloadLimit(limit)
+
+  if e != nil {
+    err <- e
+  } else {
+    updateSession(client, session, err)
+  }
+}
+
+func setGlobalUploadLimit(client *transmission.Client, limit int, session chan settings, err chan error) {
+  e := client.SetGlobalUploadLimit(limit)
+
+  if e != nil {
+    err <- e
+  } else {
+    updateSession(client, session, err)
+  }
+}
+
+func updateSession(client *transmission.Client, session chan settings, err chan error) {
+  s, e := client.GetSessionSettings()
+  err <- e
+  session <- s
+}
+
+/* Utils */
 
 func mapToString(slice []transmission.TorrentListItem) []string {
   output := make([]string, len(slice))
