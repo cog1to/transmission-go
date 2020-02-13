@@ -5,6 +5,14 @@ import (
   wchar "../cgo.wchar"
 )
 
+/* Common item interface */
+
+type Identifiable interface {
+  Id() int
+}
+
+/* List */
+
 type Formatter = func(item interface{}, width int) string
 
 type List struct {
@@ -17,7 +25,7 @@ type List struct {
   Cursor int
   Selection []int
   Offset int
-  Items []interface{}
+  Items []Identifiable
 }
 
 func (drawer *List) Draw() {
@@ -34,7 +42,7 @@ func (drawer *List) Draw() {
     } else {
       attribute = gc.A_NORMAL
     }
-    if contains(drawer.Selection, index + drawer.Offset) {
+    if contains(drawer.Selection, drawer.Items[index + drawer.Offset].Id()) {
       attribute = attribute | gc.A_BOLD
     }
 
@@ -82,10 +90,11 @@ func (drawer *List) Page(direction int) {
 }
 
 func (drawer *List) Select() {
-  if contains(drawer.Selection, drawer.Cursor) {
-    drawer.Selection = removeInt(drawer.Selection, drawer.Cursor)
+  id := drawer.Items[drawer.Cursor].Id()
+  if contains(drawer.Selection, id) {
+    drawer.Selection = removeInt(drawer.Selection, id)
   } else {
-    drawer.Selection = append(drawer.Selection, drawer.Cursor)
+    drawer.Selection = append(drawer.Selection, id)
   }
 }
 
@@ -93,10 +102,26 @@ func (drawer *List) ClearSelection() {
   drawer.Selection = []int{}
 }
 
-func (drawer *List) SetItems(items []interface{}) {
+func (drawer *List) SetItems(items []Identifiable) {
   drawer.Items = items
+  drawer.UpdateSelection()
   drawer.Cursor = minInt(len(drawer.Items) - 1, drawer.Cursor)
   drawer.UpdateOffset()
+}
+
+func (drawer *List) UpdateSelection() {
+  if len(drawer.Selection) == 0 {
+    return
+  }
+
+  newSelection := make([]int, 0, len(drawer.Selection))
+  for _, id := range drawer.Selection {
+    if item(drawer.Items, id) != nil {
+      newSelection = append(newSelection, id)
+    }
+  }
+
+  drawer.Selection = newSelection
 }
 
 func (drawer *List) UpdateOffset() {
@@ -109,14 +134,26 @@ func (drawer *List) UpdateOffset() {
   }
 }
 
-func (drawer *List) GetSelection() []interface{} {
+func (drawer *List) GetSelection() []Identifiable {
   if len(drawer.Selection) > 0 {
-    items := make([]interface{}, len(drawer.Selection))
-    for i, index := range drawer.Selection {
-      items[i] = drawer.Items[index]
+    items := make([]Identifiable, 0, len(drawer.Selection))
+    for _, id := range drawer.Selection {
+      if existingItem := item(drawer.Items, id); existingItem != nil {
+        items = append(items, *existingItem)
+      }
     }
     return items
   }
 
   return drawer.Items[drawer.Cursor:drawer.Cursor+1]
+}
+
+func item(items []Identifiable, id int) *Identifiable {
+  for _, item := range items {
+    if item.Id() == id {
+      return &item
+    }
+  }
+
+  return nil
 }

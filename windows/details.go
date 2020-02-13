@@ -16,12 +16,13 @@ type DetailsWindowState struct {
   List List
 }
 
+
 func TorrentDetailsWindow(
   source *gc.Window,
   reader *InputReader,
   client *transmission.Client,
   errorDrawer func(error),
-  id int64) {
+  id int) {
   rows, cols := source.MaxYX()
 
   window, err := gc.NewWindow(rows-2, cols, 0, 0)
@@ -87,7 +88,7 @@ func TorrentDetailsWindow(
       0,
       []int{},
       0,
-      []interface{}{}}}
+      []Identifiable{}}}
 
   // Initial draw.
   drawTorrentDetailsWindow(window, *state)
@@ -144,7 +145,7 @@ func TorrentDetailsWindow(
       if torrent != nil {
         state.List.Items = generalizeFiles(torrent.Files)
       } else {
-        state.List.Items = []interface{}{}
+        state.List.Items = []Identifiable{}
       }
     case detailsError := <-e:
       errorDrawer(detailsError)
@@ -210,13 +211,13 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
   window.Refresh()
 }
 
-func getDetails(client *transmission.Client, id int64, tor chan *transmission.TorrentDetails, err chan error) {
+func getDetails(client *transmission.Client, id int, tor chan *transmission.TorrentDetails, err chan error) {
   item, e := client.TorrentDetails(id)
   err <- e
   tor <- item
 }
 
-func updatePriority(client *transmission.Client, id int64, ids []int, priority int, tor chan *transmission.TorrentDetails, err chan error) {
+func updatePriority(client *transmission.Client, id int, ids []int, priority int, tor chan *transmission.TorrentDetails, err chan error) {
   e := client.SetPriority(id, ids, priority)
 
   if e != nil {
@@ -226,7 +227,7 @@ func updatePriority(client *transmission.Client, id int64, ids []int, priority i
   }
 }
 
-func updateWanted(client *transmission.Client, id int64, ids []int, wanted bool, tor chan *transmission.TorrentDetails, err chan error) {
+func updateWanted(client *transmission.Client, id int, ids []int, wanted bool, tor chan *transmission.TorrentDetails, err chan error) {
   e := client.SetWanted(id, ids, wanted)
 
   if e != nil {
@@ -236,7 +237,7 @@ func updateWanted(client *transmission.Client, id int64, ids []int, wanted bool,
   }
 }
 
-func setDownloadLimit(client *transmission.Client, id int64, limit int, tor chan *transmission.TorrentDetails, err chan error) {
+func setDownloadLimit(client *transmission.Client, id int, limit int, tor chan *transmission.TorrentDetails, err chan error) {
   e := client.SetDownloadLimit(id, limit)
   if e != nil {
     err <- e
@@ -245,7 +246,7 @@ func setDownloadLimit(client *transmission.Client, id int64, limit int, tor chan
   }
 }
 
-func setUploadLimit(client *transmission.Client, id int64, limit int, tor chan *transmission.TorrentDetails, err chan error) {
+func setUploadLimit(client *transmission.Client, id int, limit int, tor chan *transmission.TorrentDetails, err chan error) {
   e := client.SetUploadLimit(id, limit)
   if e != nil {
     err <- e

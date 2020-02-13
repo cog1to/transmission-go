@@ -81,7 +81,7 @@ const (
 /* Responses */
 
 type TorrentListItem struct {
-  Id int64              `json:"id"`
+  TorrentId int         `json:"id"`
   Name string           `json:"name"`
   UploadSpeed float32   `json:"rateUpload"`
   DownloadSpeed float32 `json:"rateDownload"`
@@ -139,7 +139,7 @@ type TorrentFile struct {
 }
 
 type TorrentDetailsInternal struct {
-  Id int64                              `json:"id"`
+  Id int                                `json:"id"`
   Name string                           `json:"name"`
   UploadSpeed float32                   `json:"rateUpload"`
   DownloadSpeed float32                 `json:"rateDownload"`
@@ -157,7 +157,7 @@ type TorrentDetailsInternal struct {
 }
 
 type TorrentDetails struct {
-  Id int64
+  Id int
   Name string
   UploadSpeed float32
   DownloadSpeed float32
@@ -201,6 +201,16 @@ type SetSessionSettingsResponse struct {
   Tag string    `json:"tag"`
 }
 
+/* Helpers */
+
+func (file TorrentFile) Id() int {
+  return file.Number
+}
+
+func (torrent TorrentListItem) Id() int {
+  return torrent.TorrentId
+}
+
 /* Requests */
 
 func RefreshRequest(conn Connection) TRequest {
@@ -231,7 +241,7 @@ func ListRequest(conn Connection, token string) TRequest {
         "uploadRatio"}}}
 }
 
-func DeleteRequest(conn Connection, token string, ids []int64, withData bool) TRequest {
+func DeleteRequest(conn Connection, token string, ids []int, withData bool) TRequest {
   return TRequest{
     conn,
     "torrent-remove",
@@ -247,15 +257,15 @@ func AddRequest(conn Connection, token string, filename string, downloadDir stri
     map[string]interface{} { "filename": filename, "download-dir": downloadDir, "paused": paused }}
 }
 
-func DetailsRequest(conn Connection, token string, id int64, fields []string) TRequest {
+func DetailsRequest(conn Connection, token string, id int, fields []string) TRequest {
   return TRequest{
     conn,
     "torrent-get",
     token,
-    map[string]interface{} { "ids": []int64{ id }, "fields": fields }}
+    map[string]interface{} { "ids": []int{ id }, "fields": fields }}
 }
 
-func SetPriorityRequest(conn Connection, token string, id int64, files []int, priority int) TRequest {
+func SetPriorityRequest(conn Connection, token string, id int, files []int, priority int) TRequest {
   var priorityValue string
   switch priority {
   case TR_PRIORITY_NORMAL:
@@ -271,11 +281,11 @@ func SetPriorityRequest(conn Connection, token string, id int64, files []int, pr
     "torrent-set",
     token,
     map[string]interface{}{
-      "ids": []int64{ id },
+      "ids": []int{ id },
       priorityValue: files}}
 }
 
-func SetWantedRequest(conn Connection, token string, id int64, files []int, wanted bool) TRequest {
+func SetWantedRequest(conn Connection, token string, id int, files []int, wanted bool) TRequest {
   var wantedValue string
   switch wanted {
   case true:
@@ -289,11 +299,11 @@ func SetWantedRequest(conn Connection, token string, id int64, files []int, want
     "torrent-set",
     token,
     map[string]interface{}{
-      "ids": []int64{ id },
+      "ids": []int{ id },
       wantedValue: files}}
 }
 
-func SetDownloadLimitRequest(conn Connection, token string, id int64, value int) TRequest {
+func SetDownloadLimitRequest(conn Connection, token string, id int, value int) TRequest {
   var limited bool
   if value > 0 {
     limited = true
@@ -304,12 +314,12 @@ func SetDownloadLimitRequest(conn Connection, token string, id int64, value int)
     "torrent-set",
     token,
     map[string]interface{}{
-      "ids": []int64{ id },
+      "ids": []int{ id },
       "downloadLimit": value,
       "downloadLimited": limited}}
 }
 
-func SetUploadLimitRequest(conn Connection, token string, id int64, value int) TRequest {
+func SetUploadLimitRequest(conn Connection, token string, id int, value int) TRequest {
   var limited bool
   if value > 0 {
     limited = true
@@ -320,12 +330,12 @@ func SetUploadLimitRequest(conn Connection, token string, id int64, value int) T
     "torrent-set",
     token,
     map[string]interface{}{
-      "ids": []int64{ id },
+      "ids": []int{ id },
       "uploadLimit": value,
       "uploadLimited": limited}}
 }
 
-func StartTorrentRequest(conn Connection, token string, ids []int64) TRequest {
+func StartTorrentRequest(conn Connection, token string, ids []int) TRequest {
   return TRequest{
     conn,
     "torrent-start",
@@ -334,7 +344,7 @@ func StartTorrentRequest(conn Connection, token string, ids []int64) TRequest {
       "ids": ids}}
 }
 
-func StopTorrentRequest(conn Connection, token string, ids []int64) TRequest {
+func StopTorrentRequest(conn Connection, token string, ids []int) TRequest {
   return TRequest{
     conn,
     "torrent-stop",
@@ -475,7 +485,7 @@ func (client *Client) List() (*[]TorrentListItem, error) {
   return &listResponse.Arguments.Torrents, err
 }
 
-func (client *Client) Delete(ids []int64, withData bool) error {
+func (client *Client) Delete(ids []int, withData bool) error {
   _, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return DeleteRequest(conn, token, ids, withData).ToRequest()
   })
@@ -505,7 +515,7 @@ func (client *Client) AddTorrent(url string, path string) (error) {
   return nil
 }
 
-func (client *Client) TorrentDetails(id int64) (*TorrentDetails, error) {
+func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
   fields := []string{
     "error",
     "errorString",
@@ -578,7 +588,7 @@ func (client *Client) TorrentDetails(id int64) (*TorrentDetails, error) {
   return &torrent, nil
 }
 
-func (client *Client) SetPriority(id int64, files []int, priority int) error {
+func (client *Client) SetPriority(id int, files []int, priority int) error {
   body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return SetPriorityRequest(conn, token, id, files, priority).ToRequest()
   })
@@ -600,7 +610,7 @@ func (client *Client) SetPriority(id int64, files []int, priority int) error {
   return nil
 }
 
-func (client *Client) SetWanted(id int64, files []int, wanted bool) error {
+func (client *Client) SetWanted(id int, files []int, wanted bool) error {
   body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return SetWantedRequest(conn, token, id, files, wanted).ToRequest()
   })
@@ -622,7 +632,7 @@ func (client *Client) SetWanted(id int64, files []int, wanted bool) error {
   return nil
 }
 
-func (client *Client) SetDownloadLimit(id int64, limit int) error {
+func (client *Client) SetDownloadLimit(id int, limit int) error {
   body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return SetDownloadLimitRequest(conn, token, id, limit).ToRequest()
   })
@@ -644,7 +654,7 @@ func (client *Client) SetDownloadLimit(id int64, limit int) error {
   return nil
 }
 
-func (client *Client) SetUploadLimit(id int64, limit int) error {
+func (client *Client) SetUploadLimit(id int, limit int) error {
   body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     return SetUploadLimitRequest(conn, token, id, limit).ToRequest()
   })
@@ -666,7 +676,7 @@ func (client *Client) SetUploadLimit(id int64, limit int) error {
   return nil
 }
 
-func (client *Client) UpdateActive(ids []int64, active bool) error {
+func (client *Client) UpdateActive(ids []int, active bool) error {
   body, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
     if active {
       return StartTorrentRequest(conn, token, ids).ToRequest()

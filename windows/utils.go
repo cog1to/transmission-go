@@ -51,23 +51,23 @@ func contains(slice []int, el int) bool {
   return false
 }
 
-func generalizeTorrents(items []transmission.TorrentListItem) []interface{} {
-  output := make([]interface{}, len(items))
+func generalizeTorrents(items []transmission.TorrentListItem) []Identifiable {
+  output := make([]Identifiable, len(items))
   for ind, item := range items {
     output[ind] = item
   }
   return output
 }
 
-func generalizeFiles(items []transmission.TorrentFile) []interface{} {
-  output := make([]interface{}, len(items))
+func generalizeFiles(items []transmission.TorrentFile) []Identifiable {
+  output := make([]Identifiable, len(items))
   for ind, item := range items {
     output[ind] = item
   }
   return output
 }
 
-func toTorrentList(items []interface{}) []transmission.TorrentListItem {
+func toTorrentList(items []Identifiable) []transmission.TorrentListItem {
   output := make([]transmission.TorrentListItem, len(items))
   for ind, item := range items {
     output[ind] = item.(transmission.TorrentListItem)
@@ -75,7 +75,7 @@ func toTorrentList(items []interface{}) []transmission.TorrentListItem {
   return output
 }
 
-func toFileList(items []interface{}) []transmission.TorrentFile {
+func toFileList(items []Identifiable) []transmission.TorrentFile {
   output := make([]transmission.TorrentFile, len(items))
   for ind, item := range items {
     output[ind] = item.(transmission.TorrentFile)

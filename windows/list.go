@@ -155,7 +155,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
 
     format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
     return fmt.Sprintf(format,
-      item.Id,
+      item.Id(),
       string(croppedTitle),
       strings.Repeat(" ", spacesLength),
       fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0),
@@ -178,7 +178,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
       0,
       []int{},
       0,
-      []interface{}{}}}
+      []Identifiable{}}}
 
   // Handle updates and control.
   func(control chan input, err chan error, list chan torrents) {
@@ -193,7 +193,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         if items != nil {
           state.List.SetItems(generalizeTorrents(*items))
         } else {
-          state.List.SetItems([]interface{}{})
+          state.List.SetItems([]Identifiable{})
         }
         drawList(screen, *state)
       case c := <-control:
@@ -255,7 +255,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             errorDrawer := func(err error) {
               drawError(screen, err)
             }
-            TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id)
+            TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id())
           }
         case PAUSE:
           // Pause/Start selected torrents.
@@ -308,7 +308,7 @@ func drawList(window *gc.Window, state ListWindowState) {
   if op := state.PendingOperation; op != nil {
     var idsString string
     if len(op.Items) == 1 {
-      idsString = fmt.Sprintf("torrent %d", op.Items[0].Id)
+      idsString = fmt.Sprintf("torrent %d", op.Items[0].Id())
     } else {
       idsString = fmt.Sprintf("torrents %s", strings.Join(mapToString(op.Items), ", "))
     }
@@ -413,25 +413,25 @@ func updateSession(client *transmission.Client, session chan settings, err chan 
 func mapToString(slice []transmission.TorrentListItem) []string {
   output := make([]string, len(slice))
   for index, element := range slice {
-    output[index] = fmt.Sprintf("%d", element.Id)
+    output[index] = fmt.Sprintf("%d", element.Id())
   }
   return output
 }
 
-func mapToIds(slice []transmission.TorrentListItem) []int64 {
-  output := make([]int64, len(slice))
+func mapToIds(slice []transmission.TorrentListItem) []int {
+  output := make([]int, len(slice))
   for index, item := range slice {
-    output[index] = item.Id
+    output[index] = item.Id()
   }
   return output
 }
 
-func idsAndNextState(torrents []transmission.TorrentListItem) ([]int64, bool) {
+func idsAndNextState(torrents []transmission.TorrentListItem) ([]int, bool) {
   isActive := false
-  ids := make([]int64, len(torrents))
+  ids := make([]int, len(torrents))
   for i, torrent := range torrents {
     isActive = isActive || torrent.Status != transmission.TR_STATUS_STOPPED
-    ids[i] = torrent.Id
+    ids[i] = torrent.Id()
   }
 
   return ids, !isActive
