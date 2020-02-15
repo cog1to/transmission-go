@@ -139,6 +139,17 @@ func TorrentDetailsWindow(
           state.Torrent.UploadLimit, state.Torrent.UploadLimited,
           func(limit int) { go setUploadLimit(client, id, limit, details, e) },
           func(err error) { go func() { e <- err }() })
+      case gc.KEY_F1:
+        items := []HelpItem{
+          HelpItem{ "qh←", "Go back to torrent list" },
+          HelpItem{ "jk↑↓", "Move cursor up and down" },
+          HelpItem{ "Space", "Toggle selection" },
+          HelpItem{ "c", "Clear selection" },
+          HelpItem{ "g", "Download/Don't download selected file(s)" },
+          HelpItem{ "p", "Change priority of selected file(s)" },
+          HelpItem{ "L", "Set torrent's download speed limit" },
+          HelpItem{ "U", "Set torrent's upload speed limit" }}
+        CheatsheetWindow(window, reader, items)
       }
     case torrent := <-details:
       state.Torrent = torrent

@@ -31,6 +31,7 @@ const (
   PAUSE = iota
   DOWN_LIMIT = iota
   UP_LIMIT = iota
+  HELP = iota
 )
 
 /* Operations */
@@ -103,6 +104,8 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
         control <- DOWN_LIMIT
       case 'U':
         control <- UP_LIMIT
+      case gc.KEY_F1:
+        control <- HELP
       }
     }
   }(out)
@@ -281,6 +284,19 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             state.Settings.UploadSpeedLimit, state.Settings.UploadSpeedLimitEnabled,
             func(limit int) { go setGlobalUploadLimit(client, limit, session, err) },
             func(err error) { drawError(screen, err) })
+        case HELP:
+          items := []HelpItem{
+            HelpItem{ "q", "Exit" },
+            HelpItem{ "jk↑↓", "Move cursor up and down" },
+            HelpItem{ "l→", "Go to torrent details" },
+            HelpItem{ "Space", "Toggle selection" },
+            HelpItem{ "c", "Clear selection" },
+            HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
+            HelpItem{ "D", "Delete torrent(s) along with the data" },
+            HelpItem{ "p", "Start/stop selected torrent(s)" },
+            HelpItem{ "L", "Set global download speed limit" },
+            HelpItem{ "U", "Set global upload speed limit" }}
+          CheatsheetWindow(screen, reader, items)
         }
 
         // Redraw.
