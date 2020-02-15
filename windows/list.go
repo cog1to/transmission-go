@@ -297,10 +297,21 @@ func drawList(window *gc.Window, state ListWindowState) {
   maxTitleLength := maxInt(0, col - 63)
 
   // Legend.
+  legendDown := "Down"
+  if state.Settings != nil && state.Settings.DownloadSpeedLimitEnabled && state.Settings.DownloadSpeedLimit > 0 {
+    legendDown = legendDown +  " *"
+  }
+
+  legendUp := "Up"
+  if state.Settings != nil && state.Settings.UploadSpeedLimitEnabled && state.Settings.UploadSpeedLimit > 0 {
+    legendUp = legendUp +  " *"
+  }
+
   legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
-  window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "Size", "Status", "Ratio", "Down", "Up")
+  window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "Size", "Status", "Ratio", legendDown, legendUp)
   window.HLine(1, 0, gc.ACS_HLINE, col)
 
+  // List.
   state.List.Draw()
 
   // Status.
