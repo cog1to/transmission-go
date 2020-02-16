@@ -2,19 +2,26 @@ package windows
 
 import (
   gc "../goncurses"
-  "strings"
   "fmt"
+  "strconv"
 )
 
 type PromptState struct {
-  Value string
   Title string
   Limit int
+  Field *InputField
+  Input chan InputFieldResult
 }
 
 const CONTROLS_TEXT = "RETURN - Confirm | ESC - Cancel"
 
-func Prompt(parent *gc.Window, reader *InputReader, title string, limit int, charset string, initial string) string {
+func Prompt(
+  parent *gc.Window,
+  reader *InputReader,
+  title string,
+  limit int,
+  charset string,
+  initial string) string {
   rows, cols := parent.MaxYX()
   height, width := 5, maxInt(4 + len(title) + 1 + limit + 1, len(CONTROLS_TEXT) + 4)
   y, x := (rows - height) / 2, (cols - width) / 2
@@ -25,41 +32,45 @@ func Prompt(parent *gc.Window, reader *InputReader, title string, limit int, cha
   }
   defer prompt.Delete()
 
-  // Handle user input.
-  observer := make(chan gc.Key)
-  reader.AddObserver(observer)
-  defer reader.RemoveObserver(observer)
-
   // Enable cursor.
   gc.Cursor(1)
   defer gc.Cursor(0)
 
-  state := &PromptState{ initial, title, limit }
+  initialRunes := []rune(initial)
+  length := len(initialRunes)
+
+  state := &PromptState{
+    title,
+    limit,
+    &InputField{
+      2 + len(title + " "),
+      1,
+      limit + 1,
+      maxInt(0, length - (limit + 1)),
+      length,
+      true,
+      initialRunes,
+      limit,
+      charset},
+    make(chan InputFieldResult)}
+
+  // Field is active by default.
+  go state.Field.Activate(reader, state.Input, true)
+
   Loop: for {
     drawPrompt(prompt, *state)
 
-    // Read input
-    input := <-observer
-
+    input := <-state.Input
     switch input {
-    case gc.KEY_RETURN:
+    case CONFIRM:
       break Loop
-    case gc.KEY_ESC:
-      state.Value = ""
+    case CANCEL:
+      state.Field.Value = []rune{}
       break Loop
-    case gc.KEY_BACKSPACE, gc.KEY_DC, 0x7f:
-      if len(state.Value) > 0 {
-        state.Value = string(([]rune(state.Value))[:len(state.Value)-1])
-      }
-    default:
-      str := fmt.Sprintf("%c", input)
-      if strings.Contains(charset, str) && len(state.Value) < limit {
-        state.Value = state.Value + str
-      }
     }
   }
 
-  return state.Value
+  return string(state.Field.Value)
 }
 
 func drawPrompt(window *gc.Window, state PromptState) {
@@ -71,9 +82,7 @@ func drawPrompt(window *gc.Window, state PromptState) {
 
   // Prompt.
   window.MovePrint(1, startX, state.Title + " ")
-  window.ColorOn(1)
-  window.Print(state.Value + strings.Repeat(" ", (state.Limit + 1) - len(state.Value)))
-  window.ColorOff(1)
+  state.Field.Draw(window)
 
   // Delimiter.
   window.HLine(2, 1, gc.ACS_HLINE, col-2)
@@ -82,8 +91,29 @@ func drawPrompt(window *gc.Window, state PromptState) {
   window.MovePrint(3, startX + (width - len(CONTROLS_TEXT)) / 2, CONTROLS_TEXT)
 
   // Cursor.
-  gc.Cursor(1)
-  window.Move(1, len(state.Title + " ") + len(state.Value) + 2)
+  state.Field.SetCursor(window)
 
   window.Refresh()
 }
+
+/* Public helpers */
+
+func intPrompt(window *gc.Window, reader *InputReader, title string, value int, flag bool, onFinish func(int), onError func(error)) {
+  var initialValue string
+  if flag && value > 0 {
+    initialValue = fmt.Sprintf("%d", value)
+  }
+
+  output := Prompt(window, reader, title, 6, "0123456789", initialValue)
+  if len(output) > 0 {
+    limit, e := strconv.Atoi(output)
+    if e != nil {
+      onError(e)
+    } else {
+      onFinish(limit)
+    }
+  } else {
+    onFinish(0)
+  }
+}
+

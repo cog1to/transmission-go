@@ -17,12 +17,14 @@ const (
 )
 
 type NewTorrentWindowState struct {
-  Url string
-  Path string
+  UrlField *InputField
+  PathField *InputField
   Focus int
   Cursor int
   Width int
   Result NewTorResult
+  Reader *InputReader
+  Input chan InputFieldResult
 }
 
 const (
@@ -41,59 +43,6 @@ type NewTorrentInput interface {
 type NewTorBlank struct { }
 func (blank NewTorBlank) UpdateState(state *NewTorrentWindowState) { }
 
-type NewTorChar struct {
-  Input gc.Key
-}
-
-func (char NewTorChar) UpdateState(state *NewTorrentWindowState) {
-  var target *string
-  var trimmed []rune
-  var runes []rune
-  var index int
-
-  switch state.Focus {
-  case FOCUS_URL:
-    target = &state.Url
-  case FOCUS_PATH:
-    target = &state.Path
-  }
-
-  var strCopy string = *target
-  runes = []rune(strCopy)
-
-  if len(runes) == 0 && (char.Input == gc.KEY_BACKSPACE || char.Input == gc.KEY_DC) {
-    return
-  }
-
-  switch char.Input {
-  case gc.KEY_BACKSPACE, 0x7f:
-    if state.Cursor == 0 {
-      return
-    } else {
-      index = state.Cursor - 1
-    }
-    trimmed = remove(runes, index)
-    state.Cursor -= 1
-  case gc.KEY_DC:
-    if state.Cursor == len(runes) {
-      index = state.Cursor - 1
-    } else {
-      index = state.Cursor
-    }
-    trimmed = remove(runes, index)
-  default:
-    prefix, suffix := runes[:state.Cursor], runes[state.Cursor:]
-    output := fmt.Sprintf("%s%c%s", string(prefix), char.Input, string(suffix))
-
-    trimmed = []rune(output)
-    state.Cursor += 1
-  }
-
-  *target = string(trimmed)
-
-  state.Cursor = maxInt(minInt(len(trimmed), state.Cursor), 0)
-}
-
 type NewTorMove struct {
   Direction int
 }
@@ -108,10 +57,11 @@ func (move NewTorMove) UpdateState(state *NewTorrentWindowState) {
     }
   }
 
-  if state.Focus == FOCUS_URL {
-    state.Cursor = minInt(state.Cursor, len([]rune(state.Url)))
-  } else if state.Focus == FOCUS_PATH {
-    state.Cursor = minInt(state.Cursor, len([]rune(state.Path)))
+  switch state.Focus {
+  case FOCUS_URL:
+    go state.UrlField.Activate(state.Reader, state.Input, false)
+  case FOCUS_PATH:
+    go state.PathField.Activate(state.Reader, state.Input, false)
   }
 }
 
@@ -131,47 +81,8 @@ func (action NewTorAction) UpdateState(state *NewTorrentWindowState) {
 type NewTorNotRecognized struct { }
 func (empty NewTorNotRecognized) UpdateState(state *NewTorrentWindowState) { }
 
-type NewTorCursorMove struct {
-  Direction int
-}
-
-func (action NewTorCursorMove) UpdateState(state *NewTorrentWindowState) {
-  newPosition := state.Cursor + action.Direction
-
-  var input string
-  if state.Focus == FOCUS_URL {
-    input = state.Url
-  } else if state.Focus == FOCUS_PATH {
-    input = state.Path
-  }
-
-  length := len([]rune(input))
-  offset := maxInt(0, length - state.Width + 1)
-  newPosition = maxInt(offset, minInt(newPosition, length))
-  state.Cursor = newPosition
-}
-
-type NewTorCursorJump struct {
-  Direction int
-}
-
-func (action NewTorCursorJump) UpdateState(state *NewTorrentWindowState) {
-  var input []rune
-  switch state.Focus {
-  case FOCUS_URL:
-    input = []rune(state.Url)
-  case FOCUS_PATH:
-    input = []rune(state.Path)
-  }
-
-  switch action.Direction {
-  case 1:
-    state.Cursor = len(input)
-  case -1:
-    offset := maxInt(0, len(input) - state.Width + 1)
-    state.Cursor = maxInt(offset, 0)
-  }
-}
+type NewTorRefresh struct {}
+func (empty NewTorRefresh) UpdateState(state *NewTorrentWindowState) { }
 
 /* Main loop */
 
@@ -190,49 +101,44 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
   }
 
   // Window state
-  state := &NewTorrentWindowState{ Width: width - 4 }
+  state := &NewTorrentWindowState{
+    Width: width - 4,
+    UrlField: &InputField{ 2, 4, width - 4, 0, 0, true, []rune{}, 0, "" },
+    PathField: &InputField{ 2, 6, width - 4, 0, 0, false, []rune{}, 0, "" },
+    Reader: reader,
+    Input: make(chan InputFieldResult)}
 
-  // Handle user input.
+  // Handle  user input.
   observer := make(chan gc.Key)
   reader.AddObserver(observer)
 
   get_input := func() NewTorrentInput {
-    ch := <-observer
-    switch state.Focus {
-    case FOCUS_URL, FOCUS_PATH:
-      switch ch {
-      case '\n', gc.KEY_DOWN, gc.KEY_TAB:
-        return NewTorMove{ 1 }
-      case gc.KEY_UP:
-        return NewTorMove{ -1 }
-      case gc.KEY_LEFT:
-        return NewTorCursorMove { -1 }
-      case gc.KEY_RIGHT:
-        return NewTorCursorMove { 1 }
-      case gc.KEY_HOME, gc.KEY_PAGEUP:
-        return NewTorCursorJump { -1 }
-      case gc.KEY_END, gc.KEY_PAGEDOWN:
-        return NewTorCursorJump { 1 }
-      case gc.KEY_F1, gc.KEY_F2, gc.KEY_F3, gc.KEY_F4, gc.KEY_F5, gc.KEY_F6, gc.KEY_F7, gc.KEY_F8, gc.KEY_F9, gc.KEY_F10, gc.KEY_F11, gc.KEY_F12:
-        return NewTorBlank{}
-      default:
-        return NewTorChar{ ch }
-      }
-    default:
-      switch ch {
-      case gc.KEY_DOWN, gc.KEY_TAB:
-        return NewTorMove{ 1 }
-      case gc.KEY_UP:
-        return NewTorMove{ -1 }
-      case gc.KEY_LEFT, gc.KEY_RIGHT:
-        if state.Focus == FOCUS_CANCEL {
-          return NewTorMove { -1 }
-        } else {
-          return NewTorMove { 1 }
+    select {
+      case ch := <-observer:
+        switch ch {
+        case gc.KEY_DOWN, gc.KEY_TAB:
+          return NewTorMove{ 1 }
+        case gc.KEY_UP:
+          return NewTorMove{ -1 }
+        case gc.KEY_LEFT, gc.KEY_RIGHT:
+          if state.Focus == FOCUS_CANCEL {
+            return NewTorMove { -1 }
+          } else {
+            return NewTorMove { 1 }
+          }
+        case '\n':
+          return NewTorAction{ state.Focus == FOCUS_CONFIRM }
         }
-      case '\n':
-        return NewTorAction{ state.Focus == FOCUS_CONFIRM }
-      }
+      case fr := <-state.Input:
+        switch fr {
+        case FOCUS_FORWARD:
+          return NewTorMove { 1 }
+        case FOCUS_BACKWARD:
+          return NewTorMove { -1 }
+        case UPDATE:
+          return NewTorRefresh{}
+        }
+        break
     }
 
     return NewTorNotRecognized{}
@@ -241,6 +147,9 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
   // Initial draw.
   drawNewTorrentWindow(window, *state)
 
+  // First field is activated by default.
+  go state.UrlField.Activate(state.Reader, state.Input, false)
+
   for {
     input := get_input()
     input.UpdateState(state)
@@ -248,7 +157,7 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
     if state.Result == NEW_RESULT_CONFIRM {
       state.Result = NEW_RESULT_NO
 
-      url, path := expandHome(state.Url), expandHome(state.Path)
+      url, path := expandHome(string(state.UrlField.Value)), expandHome(string(state.PathField.Value))
 
       err := client.AddTorrent(url, path)
       if err != nil {
@@ -280,29 +189,11 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
 
   // URL
   window.MovePrint(3, startX, "Torrent file or URL:")
-  window.ColorOn(1)
-  urlRunes := []rune(state.Url)
-  urlOffset := maxInt(0, len(urlRunes) - width + 1)
-  window.MovePrint(4, startX, string(urlRunes[urlOffset:]))
-  if urlOffset == 0 {
-    window.MovePrint(4, startX + len(urlRunes), strings.Repeat(" ", width - len(urlRunes)))
-  } else {
-    window.MovePrint(4, startX + width - 1, " ")
-  }
-  window.ColorOff(1)
+  state.UrlField.Draw(window)
 
   // Path
   window.MovePrintf(5, startX, "Download path:")
-  window.ColorOn(1)
-  pathRunes := []rune(state.Path)
-  pathOffset := maxInt(0, len(pathRunes) - width + 1)
-  window.MovePrint(6, startX, string(pathRunes[pathOffset:]))
-  if pathOffset == 0 {
-    window.MovePrint(6, startX + len(pathRunes), strings.Repeat(" ", width - len(pathRunes)))
-  } else {
-    window.MovePrint(6, startX + width - 1, " ")
-  }
-  window.ColorOff(1)
+  state.PathField.Draw(window)
 
   // Controls delimiter
   window.HLine(7, 1, gc.ACS_HLINE, col-2)
@@ -340,9 +231,9 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   // Move cursor if needed.
   switch state.Focus {
   case FOCUS_URL:
-    window.Move(4, startX + minInt(state.Cursor - urlOffset, width - 1))
+    state.UrlField.SetCursor(window)
   case FOCUS_PATH:
-    window.Move(6, startX + minInt(state.Cursor - pathOffset, width - 1))
+    state.PathField.SetCursor(window)
   }
 
   window.Refresh()

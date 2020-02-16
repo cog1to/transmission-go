@@ -3,8 +3,6 @@ package windows
 import (
   gc "../goncurses"
   transmission "../transmission"
-  "fmt"
-  "strconv"
 )
 
 func minInt(x, y int) int {
@@ -27,6 +25,12 @@ func withAttribute(window *gc.Window, attr gc.Char, block func(*gc.Window)) {
   window.AttrOn(attr)
   block(window)
   window.AttrOff(attr)
+}
+
+func withColor(window *gc.Window, color int16, block func(*gc.Window)) {
+  window.ColorOn(color)
+  block(window)
+  window.ColorOff(color)
 }
 
 func remove(slice []rune, s int) []rune {
@@ -81,22 +85,5 @@ func toFileList(items []Identifiable) []transmission.TorrentFile {
     output[ind] = item.(transmission.TorrentFile)
   }
   return output
-}
-
-func intPrompt(window *gc.Window, reader *InputReader, title string, value int, flag bool, onFinish func(int), onError func(error)) {
-  var initialValue string
-  if flag && value > 0 {
-    initialValue = fmt.Sprintf("%d", value)
-  }
-
-  output := Prompt(window, reader, title, 6, "0123456789", initialValue)
-  if len(output) > 0 {
-    limit, e := strconv.Atoi(output)
-    if e != nil {
-      onError(e)
-    } else {
-      onFinish(limit)
-    }
-  }
 }
 
