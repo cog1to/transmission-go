@@ -6,6 +6,8 @@ import (
   "strings"
 )
 
+type Suggester = func(string)([]string)
+
 type InputField struct {
   X, Y, Length int
   Offset int
@@ -14,6 +16,8 @@ type InputField struct {
   Value []rune
   Limit int
   Charset string
+  Suggester Suggester
+  Suggestion *string
 }
 
 type InputFieldResult int
@@ -34,6 +38,12 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
   reader.AddObserver(observer)
   defer reader.RemoveObserver(observer)
 
+  // Focus helper.
+  moveFocus := func(result InputFieldResult) {
+    field.IsActive = false
+    input <- result
+  }
+
   Loop: for {
     c := <-observer
     switch c {
@@ -50,15 +60,24 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
         input <- CANCEL
         break Loop
       }
-    case gc.KEY_DOWN, gc.KEY_TAB:
+    case gc.KEY_TAB:
+      if field.Suggestion != nil && string(field.Value) != (*field.Suggestion) {
+        field.Value = []rune(*field.Suggestion)
+        field.Offset = maxInt(0, len(field.Value) - field.Length + 1)
+        field.Cursor = len(field.Value)
+        field.UpdateSuggestion()
+        input <- UPDATE
+      } else {
+        moveFocus(FOCUS_FORWARD)
+        break Loop
+      }
+    case gc.KEY_DOWN:
       if isModal { break }
-      field.IsActive = false
-      input <- FOCUS_FORWARD
+      moveFocus(FOCUS_FORWARD)
       break Loop
     case gc.KEY_UP:
       if isModal { break }
-      field.IsActive = false
-      input <- FOCUS_BACKWARD
+      moveFocus(FOCUS_BACKWARD)
       break Loop
     case gc.KEY_LEFT:
       field.Cursor = maxInt(0, field.Cursor - 1)
@@ -90,19 +109,29 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
 }
 
 func (field *InputField) Draw(window *gc.Window) {
-  withColor(window, 1, func(window *gc.Window) {
-    runes := field.Value
+  runes := field.Value
 
-    if len(runes) > 0 {
+  if len(runes) > 0 {
+    withColor(window, 1, func(window *gc.Window) {
       start, end := field.Offset, minInt(field.Offset + field.Length, len(field.Value))
       window.MovePrint(field.Y, field.X, string(runes[start:end]))
-    }
+    })
+  }
 
-    visible := len(field.Value) - field.Offset
-    if field.Length > visible {
+  visible := len(field.Value) - field.Offset
+  if field.IsActive && field.Length > visible && field.Suggestion != nil {
+    tail := (*field.Suggestion)[len(field.Value):minInt(len(*field.Suggestion), len(field.Value)+(field.Length-visible))]
+    withColor(window, 2, func(window *gc.Window) {
+      window.MovePrint(field.Y, field.X + visible, tail)
+    })
+    visible += len(tail)
+  }
+
+  if field.Length > visible {
+    withColor(window, 1, func(window *gc.Window) {
       window.MovePrint(field.Y, field.X + visible, strings.Repeat(" ", field.Length - visible))
-    }
-  })
+    })
+  }
 }
 
 func (field *InputField) NewChar(c gc.Key) {
@@ -151,6 +180,18 @@ func (field *InputField) NewChar(c gc.Key) {
   if field.Cursor == len(trimmed) {
     field.Offset = maxInt(0, len(field.Value) - field.Length + 1)
   }
+
+  field.UpdateSuggestion()
+}
+
+func (field *InputField) UpdateSuggestion() {
+  var suggestion *string
+  if (field.Suggester != nil) && len(field.Value) > 0 {
+    if suggestions := field.Suggester(string(field.Value)); len(suggestions) > 0 {
+      suggestion = &suggestions[0]
+    }
+  }
+  field.Suggestion = suggestion
 }
 
 func (field *InputField) SetCursor(window *gc.Window) {

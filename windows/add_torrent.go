@@ -6,6 +6,7 @@ import (
   "fmt"
   "strings"
   "os"
+  "../suggestions"
 )
 
 type NewTorResult int
@@ -103,8 +104,8 @@ func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmissi
   // Window state
   state := &NewTorrentWindowState{
     Width: width - 4,
-    UrlField: &InputField{ 2, 4, width - 4, 0, 0, true, []rune{}, 0, "" },
-    PathField: &InputField{ 2, 6, width - 4, 0, 0, false, []rune{}, 0, "" },
+    UrlField: &InputField{ 2, 4, width - 4, 0, 0, true, []rune{}, 0, "", suggestions.GetSuggestedPaths, nil },
+    PathField: &InputField{ 2, 6, width - 4, 0, 0, false, []rune{}, 0, "", suggestions.GetSuggestedPaths, nil },
     Reader: reader,
     Input: make(chan InputFieldResult)}
 

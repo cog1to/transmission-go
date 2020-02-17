@@ -51,7 +51,9 @@ func Prompt(
       true,
       initialRunes,
       limit,
-      charset},
+      charset,
+      nil,
+      nil},
     make(chan InputFieldResult)}
 
   // Field is active by default.
