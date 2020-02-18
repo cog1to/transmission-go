@@ -112,6 +112,7 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
 func (field *InputField) Draw(window *gc.Window) {
   runes := field.Value
 
+  // Draw current value.
   if len(runes) > 0 {
     utils.WithColor(window, 1, func(window *gc.Window) {
       start, end := field.Offset, utils.MinInt(field.Offset + field.Length, len(field.Value))
@@ -119,15 +120,18 @@ func (field *InputField) Draw(window *gc.Window) {
     })
   }
 
+  // Draw suggestion.
   visible := len(field.Value) - field.Offset
   if field.IsActive && field.Length > visible && field.Suggestion != nil {
-    tail := (*field.Suggestion)[len(field.Value):utils.MinInt(len(*field.Suggestion), len(field.Value)+(field.Length-visible))]
+    suggestionRunes := []rune(*field.Suggestion)
+    tail := suggestionRunes[len(field.Value):utils.MinInt(len(suggestionRunes), len(field.Value)+(field.Length-visible))]
     utils.WithColor(window, 2, func(window *gc.Window) {
-      window.MovePrint(field.Y, field.X + visible, tail)
+      window.MovePrint(field.Y, field.X + visible, string(tail))
     })
     visible += len(tail)
   }
 
+  // Clear the rest of the field.
   if field.Length > visible {
     utils.WithColor(window, 1, func(window *gc.Window) {
       window.MovePrint(field.Y, field.X + visible, strings.Repeat(" ", field.Length - visible))
