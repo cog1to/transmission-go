@@ -35,7 +35,7 @@ func main() {
   gc.StartColor()
   gc.UseDefaultColors()
   gc.InitPair(1, gc.C_BLACK, gc.C_CYAN)
-  gc.InitPair(2, 23, gc.C_CYAN)
+  gc.InitPair(2, gc.C_WHITE, gc.C_CYAN)
 
   // Basic setup.
   gc.Raw(true)
