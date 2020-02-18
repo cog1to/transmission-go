@@ -22,6 +22,14 @@ func maxInt(x, y int) int {
   }
 }
 
+func maxFloat32(x, y float32) float32 {
+  if x > y {
+    return x
+  } else {
+    return y
+  }
+}
+
 func withAttribute(window *gc.Window, attr gc.Char, block func(*gc.Window)) {
   window.AttrOn(attr)
   block(window)

@@ -767,3 +767,4 @@ func (client *Client) GetSessionSettings() (*SessionSettings, error) {
 
   return response.Arguments, nil
 }
+

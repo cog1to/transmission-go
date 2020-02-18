@@ -29,6 +29,12 @@ type List struct {
 }
 
 func (drawer *List) Draw() {
+  if len(drawer.Items) == 0 {
+    drawer.Window.Clear()
+    drawer.Window.Refresh()
+    return
+  }
+
   rows, cols := drawer.Window.MaxYX()
 
   // Draw items.

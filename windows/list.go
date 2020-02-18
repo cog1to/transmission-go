@@ -149,7 +149,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
   formatter := func(torrent interface{}, width int) string {
     item := torrent.(transmission.TorrentListItem)
 
-    maxTitleLength := maxInt(0, width - 63)
+    maxTitleLength := maxInt(0, width - 71)
     title := []rune(item.Name)
 
     var croppedTitle []rune
@@ -161,15 +161,26 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
     }
     spacesLength := maxTitleLength - croppedTitleLength
 
-    format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+    // Format: ID - Title - %Done - ETA - Full size - Status - Ratio - Down speed - Up speed
+    format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-7s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+
+    // %Done. Handle unknown state.
+    var done string
+    if item.SizeWhenDone == 0 {
+      done = fmt.Sprintf("%3.0f%%", 0)
+    } else {
+      done = fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+    }
+
     return fmt.Sprintf(format,
       item.Id(),
       string(croppedTitle),
       strings.Repeat(" ", spacesLength),
-      fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0),
+      done,
+      formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
       formatSize(item.SizeWhenDone),
       formatStatus(item.Status),
-      item.Ratio,
+      maxFloat32(0, item.Ratio),
       formatSpeed(item.DownloadSpeed),
       formatSpeed(item.UploadSpeed))
   }
@@ -315,7 +326,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
 func drawList(window *gc.Window, state ListWindowState) {
   row, col := window.MaxYX()
 
-  maxTitleLength := maxInt(0, col - 63)
+  maxTitleLength := maxInt(0, col - 71)
 
   // Legend.
   legendDown := "Down"
@@ -328,8 +339,8 @@ func drawList(window *gc.Window, state ListWindowState) {
     legendUp = legendUp +  " *"
   }
 
-  legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
-  window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "Size", "Status", "Ratio", legendDown, legendUp)
+  legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-7s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
+  window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "ETA", "Size", "Status", "Ratio", legendDown, legendUp)
   window.HLine(1, 0, gc.ACS_HLINE, col)
 
   // List.

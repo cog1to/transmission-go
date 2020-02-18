@@ -82,3 +82,22 @@ func formatFlag(flag bool) string {
   }
 }
 
+func formatTime(time int32, done bool) string {
+  if time == -1 && done {
+    return "Done"
+  } else if time == -2 || (time == -1 && !done) {
+    return "Unknown"
+  } else {
+    if time < 60 {
+      return fmt.Sprintf("%ds", time)
+    }
+    if time < (60 * 60) {
+      return fmt.Sprintf("%0.1fmin", float32(time) / 60.0)
+    }
+    if time < (60 * 60 * 24) {
+      return fmt.Sprintf("%0.1fhr", float32(time) / 3600.0)
+    } else {
+      return fmt.Sprintf("%0.1fd", float32(time) / 86400.0)
+    }
+  }
+}
