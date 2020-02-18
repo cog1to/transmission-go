@@ -46,7 +46,11 @@ func GetSuggestedPaths(input string) []string {
 
   matching := files
   if len(name) > 0 {
-    matching = filter(files, func(file os.FileInfo)(bool) { return strings.HasPrefix(file.Name(), name) })
+    matching = filter(matching, func(file os.FileInfo)(bool) { return strings.HasPrefix(file.Name(), name) })
+  }
+
+  if len(name) == 0 || !strings.HasPrefix(name, ".") {
+    matching = filter(matching, func(file os.FileInfo)(bool) { return !strings.HasPrefix(file.Name(), ".") })
   }
 
   result := apply(matching, func(file os.FileInfo)(string) {
