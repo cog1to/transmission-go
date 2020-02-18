@@ -69,7 +69,7 @@ func TorrentDetailsWindow(
 
     var croppedTitle []rune
     croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
-    if (obfuscated) {
+    if obfuscated {
       croppedTitle = []rune(utils.RandomString(croppedTitleLength))
     } else {
       croppedTitle = title[0:croppedTitleLength]
@@ -101,7 +101,7 @@ func TorrentDetailsWindow(
       []list.Identifiable{}}}
 
   // Initial draw.
-  drawTorrentDetailsWindow(window, *state)
+  drawTorrentDetailsWindow(window, *state, obfuscated)
 
   Loop: for {
     select {
@@ -172,14 +172,14 @@ func TorrentDetailsWindow(
       errorDrawer(detailsError)
     }
 
-    drawTorrentDetailsWindow(window, *state)
+    drawTorrentDetailsWindow(window, *state, obfuscated)
   }
 
   reader.RemoveObserver(observer)
   window.Delete()
 }
 
-func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
+func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState, obfuscated bool) {
   window.Erase()
   _, col := window.MaxYX()
 
@@ -189,23 +189,35 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
 
     // Name.
     ws, convertError := wchar.FromGoString(item.Name)
-    if (convertError == nil) {
+    if convertError == nil {
       utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
-        window.MovePrintW(0, 0, ws)
+        if obfuscated {
+          window.MovePrint(0, 0, utils.RandomString(len([]rune(item.Name))))
+        } else {
+          window.MovePrintW(0, 0, ws)
+        }
       })
     }
 
-    // Data.
-    done := fmt.Sprintf(
-      "%3.0f%%",
-      (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+    // %Done. Handle unknown torrent size.
+    var done string
+    if item.SizeWhenDone == 0 {
+      done = fmt.Sprintf("%3.0f%%", 0)
+    } else {
+      done = fmt.Sprintf(
+        "%3.0f%%",
+        (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+    }
+
+    // Rest of the data.
     size := formatSize(item.SizeWhenDone)
-    ratio := item.Ratio
+    ratio := utils.MaxFloat32(item.Ratio, 0)
     status := formatStatus(item.Status)
+
     dataString := fmt.Sprintf("Size: %s | Done: %s | Ratio: %.3f | Status: %s", size, done, ratio, status)
     window.MovePrint(1, 0, dataString)
 
-    // Speeds.
+    // Speed values.
     downSpeed := formatSpeed(item.DownloadSpeed)
     downLimit := formatSpeedWithFlag(float32(item.DownloadLimit * 1024), item.DownloadLimited)
     upSpeed := formatSpeed(item.UploadSpeed)
