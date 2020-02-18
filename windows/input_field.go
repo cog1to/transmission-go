@@ -4,6 +4,7 @@ import (
   gc "../goncurses"
   "fmt"
   "strings"
+  "../utils"
 )
 
 type Suggester = func(string)([]string)
@@ -63,7 +64,7 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
     case gc.KEY_TAB:
       if field.Suggestion != nil && string(field.Value) != (*field.Suggestion) {
         field.Value = []rune(*field.Suggestion)
-        field.Offset = maxInt(0, len(field.Value) - field.Length + 1)
+        field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
         field.Cursor = len(field.Value)
         field.UpdateSuggestion()
         input <- UPDATE
@@ -80,13 +81,13 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
       moveFocus(FOCUS_BACKWARD)
       break Loop
     case gc.KEY_LEFT:
-      field.Cursor = maxInt(0, field.Cursor - 1)
+      field.Cursor = utils.MaxInt(0, field.Cursor - 1)
       if field.Offset > field.Cursor {
         field.Offset -= 1
       }
       input <- UPDATE
     case gc.KEY_RIGHT:
-      field.Cursor = minInt(len(field.Value), field.Cursor + 1)
+      field.Cursor = utils.MinInt(len(field.Value), field.Cursor + 1)
       if (field.Offset + field.Length) < field.Cursor {
         field.Offset += 1
       }
@@ -96,7 +97,7 @@ func (field *InputField) Activate(reader *InputReader, input chan InputFieldResu
       field.Cursor = 0
       input <- UPDATE
     case gc.KEY_END, gc.KEY_PAGEDOWN:
-      field.Offset = maxInt(0, len(field.Value) - field.Length + 1)
+      field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
       field.Cursor = len(field.Value)
       input <- UPDATE
     case gc.KEY_F1, gc.KEY_F2, gc.KEY_F3, gc.KEY_F4, gc.KEY_F5, gc.KEY_F6, gc.KEY_F7, gc.KEY_F8, gc.KEY_F9, gc.KEY_F10, gc.KEY_F11, gc.KEY_F12:
@@ -112,23 +113,23 @@ func (field *InputField) Draw(window *gc.Window) {
   runes := field.Value
 
   if len(runes) > 0 {
-    withColor(window, 1, func(window *gc.Window) {
-      start, end := field.Offset, minInt(field.Offset + field.Length, len(field.Value))
+    utils.WithColor(window, 1, func(window *gc.Window) {
+      start, end := field.Offset, utils.MinInt(field.Offset + field.Length, len(field.Value))
       window.MovePrint(field.Y, field.X, string(runes[start:end]))
     })
   }
 
   visible := len(field.Value) - field.Offset
   if field.IsActive && field.Length > visible && field.Suggestion != nil {
-    tail := (*field.Suggestion)[len(field.Value):minInt(len(*field.Suggestion), len(field.Value)+(field.Length-visible))]
-    withColor(window, 2, func(window *gc.Window) {
+    tail := (*field.Suggestion)[len(field.Value):utils.MinInt(len(*field.Suggestion), len(field.Value)+(field.Length-visible))]
+    utils.WithColor(window, 2, func(window *gc.Window) {
       window.MovePrint(field.Y, field.X + visible, tail)
     })
     visible += len(tail)
   }
 
   if field.Length > visible {
-    withColor(window, 1, func(window *gc.Window) {
+    utils.WithColor(window, 1, func(window *gc.Window) {
       window.MovePrint(field.Y, field.X + visible, strings.Repeat(" ", field.Length - visible))
     })
   }
@@ -150,7 +151,7 @@ func (field *InputField) NewChar(c gc.Key) {
     } else {
       index = field.Cursor - 1
     }
-    trimmed = remove(runes, index)
+    trimmed = utils.Remove(runes, index)
     field.Cursor -= 1
   case gc.KEY_DC:
     if field.Cursor == len(runes) {
@@ -158,7 +159,7 @@ func (field *InputField) NewChar(c gc.Key) {
     } else {
       index = field.Cursor
     }
-    trimmed = remove(runes, index)
+    trimmed = utils.Remove(runes, index)
   default:
     if (field.Limit > 0) && (len(field.Value) >= field.Limit) {
       return
@@ -176,9 +177,9 @@ func (field *InputField) NewChar(c gc.Key) {
   }
 
   field.Value = trimmed
-  field.Cursor = maxInt(minInt(len(trimmed), field.Cursor), 0)
+  field.Cursor = utils.MaxInt(utils.MinInt(len(trimmed), field.Cursor), 0)
   if field.Cursor == len(trimmed) {
-    field.Offset = maxInt(0, len(field.Value) - field.Length + 1)
+    field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
   }
 
   field.UpdateSuggestion()

@@ -4,6 +4,7 @@ import (
   "os"
   "strings"
   "sort"
+  "../utils"
 )
 
 func GetSuggestedPaths(input string) []string {
@@ -23,7 +24,12 @@ func GetSuggestedPaths(input string) []string {
     base = base + "/"
   }
 
-  file, err := os.Open(base)
+  var expandedBase string
+  if strings.HasPrefix(base, "~/") {
+    expandedBase = utils.ExpandHome(base)
+  }
+
+  file, err := os.Open(expandedBase)
   if err != nil || file == nil {
     return []string{}
   }

@@ -7,6 +7,7 @@ import (
   "strings"
   "os"
   "../suggestions"
+  "../utils"
 )
 
 type NewTorResult int
@@ -90,7 +91,7 @@ func (empty NewTorRefresh) UpdateState(state *NewTorrentWindowState) { }
 func NewTorrentWindow(source *gc.Window, reader *InputReader, client *transmission.Client, errorDrawer func(error)) {
   rows, cols := source.MaxYX()
 
-  height, width := 10, minInt(cols, maxInt(60, cols * 3 / 4))
+  height, width := 10, utils.MinInt(cols, utils.MaxInt(60, cols * 3 / 4))
   y, x := (rows - height) / 2, (cols - width) / 2
 
   window, err := gc.NewWindow(height, width, y, x)
@@ -208,7 +209,7 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   } else {
     attribute = gc.A_NORMAL
   }
-  withAttribute(window, attribute, func(window *gc.Window) {
+  utils.WithAttribute(window, attribute, func(window *gc.Window) {
     window.MovePrintf(8, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
   })
 
@@ -218,7 +219,7 @@ func drawNewTorrentWindow(window *gc.Window, state NewTorrentWindowState) {
   } else {
     attribute = gc.A_NORMAL
   }
-  withAttribute(window, attribute, func(window *gc.Window) {
+  utils.WithAttribute(window, attribute, func(window *gc.Window) {
     window.MovePrintf(8, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
   })
 

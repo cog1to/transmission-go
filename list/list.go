@@ -1,8 +1,9 @@
-package windows
+package list
 
 import (
   gc "../goncurses"
   wchar "../cgo.wchar"
+  "../utils"
 )
 
 /* Common item interface */
@@ -48,11 +49,11 @@ func (drawer *List) Draw() {
     } else {
       attribute = gc.A_NORMAL
     }
-    if contains(drawer.Selection, drawer.Items[index + drawer.Offset].Id()) {
+    if utils.Contains(drawer.Selection, drawer.Items[index + drawer.Offset].Id()) {
       attribute = attribute | gc.A_BOLD
     }
 
-    withAttribute(drawer.Window, attribute, func(window *gc.Window) {
+    utils.WithAttribute(drawer.Window, attribute, func(window *gc.Window) {
       ws, convertError := wchar.FromGoString(itemString)
       if (convertError == nil) {
         window.MovePrintW(y, x, ws)
@@ -73,9 +74,9 @@ func (drawer *List) Draw() {
 
 func (drawer *List) MoveCursor(direction int) {
   if (direction < 0) {
-    drawer.Cursor = maxInt(0, drawer.Cursor - 1)
+    drawer.Cursor = utils.MaxInt(0, drawer.Cursor - 1)
   } else if (direction > 0) {
-    drawer.Cursor = minInt(drawer.Cursor + 1, len(drawer.Items) - 1)
+    drawer.Cursor = utils.MinInt(drawer.Cursor + 1, len(drawer.Items) - 1)
   }
   drawer.UpdateOffset()
 }
@@ -85,11 +86,11 @@ func (drawer *List) Page(direction int) {
   rows = rows - drawer.MarginTop - drawer.MarginBottom
 
   if (direction < 0) {
-    drawer.Offset = maxInt(drawer.Offset - (rows), 0)
-    drawer.Cursor = maxInt(drawer.Cursor - (rows), 0)
+    drawer.Offset = utils.MaxInt(drawer.Offset - (rows), 0)
+    drawer.Cursor = utils.MaxInt(drawer.Cursor - (rows), 0)
   } else if (direction > 0) {
-    drawer.Offset = minInt(drawer.Offset + rows, maxInt(len(drawer.Items) - rows, 0))
-    drawer.Cursor = minInt(drawer.Cursor + rows, len(drawer.Items) - 1)
+    drawer.Offset = utils.MinInt(drawer.Offset + rows, utils.MaxInt(len(drawer.Items) - rows, 0))
+    drawer.Cursor = utils.MinInt(drawer.Cursor + rows, len(drawer.Items) - 1)
   }
 
   drawer.UpdateOffset()
@@ -97,8 +98,8 @@ func (drawer *List) Page(direction int) {
 
 func (drawer *List) Select() {
   id := drawer.Items[drawer.Cursor].Id()
-  if contains(drawer.Selection, id) {
-    drawer.Selection = removeInt(drawer.Selection, id)
+  if utils.Contains(drawer.Selection, id) {
+    drawer.Selection = utils.RemoveInt(drawer.Selection, id)
   } else {
     drawer.Selection = append(drawer.Selection, id)
   }
@@ -111,7 +112,7 @@ func (drawer *List) ClearSelection() {
 func (drawer *List) SetItems(items []Identifiable) {
   drawer.Items = items
   drawer.UpdateSelection()
-  drawer.Cursor = minInt(len(drawer.Items) - 1, drawer.Cursor)
+  drawer.Cursor = utils.MinInt(len(drawer.Items) - 1, drawer.Cursor)
   drawer.UpdateOffset()
 }
 
@@ -134,9 +135,9 @@ func (drawer *List) UpdateOffset() {
   rows, _ := drawer.Window.MaxYX()
 
   if drawer.Cursor > (rows - drawer.MarginTop - drawer.MarginBottom) + drawer.Offset - 1 {
-    drawer.Offset = minInt(drawer.Offset + 1, len(drawer.Items) - (rows - drawer.MarginTop - drawer.MarginBottom))
+    drawer.Offset = utils.MinInt(drawer.Offset + 1, len(drawer.Items) - (rows - drawer.MarginTop - drawer.MarginBottom))
   } else if drawer.Cursor < drawer.Offset {
-    drawer.Offset = maxInt(drawer.Offset - 1, 0)
+    drawer.Offset = utils.MaxInt(drawer.Offset - 1, 0)
   }
 }
 

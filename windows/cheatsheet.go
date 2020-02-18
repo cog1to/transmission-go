@@ -2,6 +2,7 @@ package windows
 
 import (
   gc "../goncurses"
+  "../utils"
 )
 
 /* Data */
@@ -25,7 +26,7 @@ func CheatsheetWindow(parent *gc.Window, reader *InputReader, items []HelpItem) 
   maxLeft := func() (int) {
     var left int
     for _, item := range items {
-      left = minInt(10, maxInt(left, len([]rune(item.Input))))
+      left = utils.MinInt(10, utils.MaxInt(left, len([]rune(item.Input))))
     }
     return left
   }()
@@ -33,7 +34,7 @@ func CheatsheetWindow(parent *gc.Window, reader *InputReader, items []HelpItem) 
   maxWidth := func() int {
     width := 0
     for _, item := range items {
-      width = maxInt(len([]rune(item.Description)), width)
+      width = utils.MaxInt(len([]rune(item.Description)), width)
     }
     return width
   }()
@@ -44,16 +45,16 @@ func CheatsheetWindow(parent *gc.Window, reader *InputReader, items []HelpItem) 
 
   rows, cols := parent.MaxYX()
   maxWindowWidth := cols - OUTER_PADDING_X
-  windowWidth := minInt(maxWindowWidth, maxWidth + INNER_PADDING + DELIMITER_WIDTH + maxLeft)
+  windowWidth := utils.MinInt(maxWindowWidth, maxWidth + INNER_PADDING + DELIMITER_WIDTH + maxLeft)
 
   maxHeight := func() int {
     y, maxRight := 0, windowWidth - INNER_PADDING + DELIMITER_WIDTH - maxLeft
     for _, item := range items {
-      y += maxInt(1, len([]rune(item.Description)) / maxRight)
+      y += utils.MaxInt(1, len([]rune(item.Description)) / maxRight)
     }
     return y
   }()
-  windowHeight := minInt(rows - OUTER_PADDING_Y, maxHeight + MARGINS_VERTICAL)
+  windowHeight := utils.MinInt(rows - OUTER_PADDING_Y, maxHeight + MARGINS_VERTICAL)
 
   // Spawn new sub-window.
   window := parent.Derived(windowHeight, windowWidth, (rows - windowHeight) / 2, (cols - windowWidth) / 2)
@@ -78,7 +79,7 @@ func drawHelpWindow(window *gc.Window, items []HelpItem) {
   maxLeft := func() (int) {
     var left int
     for _, item := range items {
-      left = minInt(10, maxInt(left, len([]rune(item.Input))))
+      left = utils.MinInt(10, utils.MaxInt(left, len([]rune(item.Input))))
     }
     return left
   }()
@@ -88,28 +89,28 @@ func drawHelpWindow(window *gc.Window, items []HelpItem) {
     // Input
     index, inputY, input := 0, 0, []rune(item.Input)
     for index < len(input) {
-      line := string(input[index:minInt(index + maxLeft, len(input))])
+      line := string(input[index:utils.MinInt(index + maxLeft, len(input))])
       window.MovePrint(y + inputY, x, line)
-      index += len(input[index:minInt(index + maxLeft, len(input))])
+      index += len(input[index:utils.MinInt(index + maxLeft, len(input))])
       inputY += 1
     }
 
     // Transition
-    withAttribute(window, gc.A_BOLD, func(window *gc.Window) {
+    utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
       window.MovePrint(y, startX + maxLeft, " :: ")
     })
 
     // Meaning
     index, textY, textX, textWidth := 0, 0, x + maxLeft + 4, width - maxLeft - 4
     for index < len(item.Description) {
-      line := item.Description[index:minInt(index + textWidth, len(item.Description))]
+      line := item.Description[index:utils.MinInt(index + textWidth, len(item.Description))]
       window.MovePrint(y + textY, textX, string(line))
       index += len(line)
       textY += 1
     }
 
     // Advance to next item
-    y += maxInt(inputY, textY)
+    y += utils.MaxInt(inputY, textY)
   }
 
   window.Refresh()

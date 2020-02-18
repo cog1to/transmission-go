@@ -7,13 +7,16 @@ import (
   "time"
   "fmt"
   "strings"
+  "../list"
+  "../utils"
+  "../transform"
 )
 
 const DETAILS_HEADER_HEIGHT = 4
 
 type DetailsWindowState struct {
   Torrent *transmission.TorrentDetails
-  List List
+  List list.List
 }
 
 
@@ -65,9 +68,9 @@ func TorrentDetailsWindow(
     title := []rune(filename)
 
     var croppedTitle []rune
-    croppedTitleLength := minInt(maxTitleLength, len(title))
+    croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
     if (obfuscated) {
-      croppedTitle = []rune(randomString(croppedTitleLength))
+      croppedTitle = []rune(utils.RandomString(croppedTitleLength))
     } else {
       croppedTitle = title[0:croppedTitleLength]
     }
@@ -85,7 +88,7 @@ func TorrentDetailsWindow(
   }
 
   state = &DetailsWindowState{
-    List: List{
+    List: list.List{
       window,
       formatter,
       DETAILS_HEADER_HEIGHT+2,
@@ -95,7 +98,7 @@ func TorrentDetailsWindow(
       0,
       []int{},
       0,
-      []Identifiable{}}}
+      []list.Identifiable{}}}
 
   // Initial draw.
   drawTorrentDetailsWindow(window, *state)
@@ -122,7 +125,7 @@ func TorrentDetailsWindow(
         // Change priority.
         items := state.List.GetSelection()
         if len(items) > 0 {
-          files := toFileList(items)
+          files := transform.ToFileList(items)
           ids, priority := idsAndNextPriority(files)
           go updatePriority(client, id, ids, priority, details, e)
         }
@@ -130,7 +133,7 @@ func TorrentDetailsWindow(
         // Change 'wanted' status.
         items := state.List.GetSelection()
         if len(items) > 0 {
-          files := toFileList(items)
+          files := transform.ToFileList(items)
           ids, wanted := idsAndNextWanted(files)
           go updateWanted(client, id, ids, wanted, details, e)
         }
@@ -161,9 +164,9 @@ func TorrentDetailsWindow(
     case torrent := <-details:
       state.Torrent = torrent
       if torrent != nil {
-        state.List.Items = generalizeFiles(torrent.Files)
+        state.List.Items = transform.GeneralizeFiles(torrent.Files)
       } else {
-        state.List.Items = []Identifiable{}
+        state.List.Items = []list.Identifiable{}
       }
     case detailsError := <-e:
       errorDrawer(detailsError)
@@ -187,7 +190,7 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState) {
     // Name.
     ws, convertError := wchar.FromGoString(item.Name)
     if (convertError == nil) {
-      withAttribute(window, gc.A_BOLD, func(window *gc.Window) {
+      utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
         window.MovePrintW(0, 0, ws)
       })
     }
@@ -277,7 +280,7 @@ func idsAndNextPriority(files []transmission.TorrentFile) ([]int, int) {
   minPriority := 99
   ids := make([]int, len(files))
   for i, file := range files {
-    minPriority = minInt(minPriority, file.Priority)
+    minPriority = utils.MinInt(minPriority, file.Priority)
     ids[i] = file.Number
   }
 

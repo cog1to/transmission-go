@@ -4,6 +4,7 @@ import (
   gc "../goncurses"
   "fmt"
   "strconv"
+  "../utils"
 )
 
 type PromptState struct {
@@ -23,7 +24,7 @@ func Prompt(
   charset string,
   initial string) string {
   rows, cols := parent.MaxYX()
-  height, width := 5, maxInt(4 + len(title) + 1 + limit + 1, len(CONTROLS_TEXT) + 4)
+  height, width := 5, utils.MaxInt(4 + len(title) + 1 + limit + 1, len(CONTROLS_TEXT) + 4)
   y, x := (rows - height) / 2, (cols - width) / 2
 
   prompt, err := gc.NewWindow(height, width, y, x)
@@ -46,7 +47,7 @@ func Prompt(
       2 + len(title + " "),
       1,
       limit + 1,
-      maxInt(0, length - (limit + 1)),
+      utils.MaxInt(0, length - (limit + 1)),
       length,
       true,
       initialRunes,

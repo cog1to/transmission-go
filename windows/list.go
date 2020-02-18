@@ -3,12 +3,15 @@ package windows
 import (
   "fmt"
   "time"
-  "../transmission"
-  gc "../goncurses"
   "os"
   "os/signal"
   "syscall"
   "strings"
+  gc "../goncurses"
+  "../transmission"
+  ls "../list"
+  "../utils"
+  "../transform"
 )
 
 type torrents = *[]transmission.TorrentListItem
@@ -50,7 +53,7 @@ type ListWindowState struct {
   Rows, Cols int
   PendingOperation *ListOperation
   Error error
-  List List
+  List ls.List
   Settings settings
 }
 
@@ -149,13 +152,13 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
   formatter := func(torrent interface{}, width int) string {
     item := torrent.(transmission.TorrentListItem)
 
-    maxTitleLength := maxInt(0, width - 71)
+    maxTitleLength := utils.MaxInt(0, width - 71)
     title := []rune(item.Name)
 
     var croppedTitle []rune
-    croppedTitleLength := minInt(maxTitleLength, len(title))
+    croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
     if (obfuscated) {
-      croppedTitle = []rune(randomString(croppedTitleLength))
+      croppedTitle = []rune(utils.RandomString(croppedTitleLength))
     } else {
       croppedTitle = title[0:croppedTitleLength]
     }
@@ -180,14 +183,14 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
       formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
       formatSize(item.SizeWhenDone),
       formatStatus(item.Status),
-      maxFloat32(0, item.Ratio),
+      utils.MaxFloat32(0, item.Ratio),
       formatSpeed(item.DownloadSpeed),
       formatSpeed(item.UploadSpeed))
   }
 
   // Initial window state.
   state := &ListWindowState{
-    List: List{
+    List: ls.List{
       screen,
       formatter,
       HEADER_HEIGHT,
@@ -197,7 +200,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
       0,
       []int{},
       0,
-      []Identifiable{}}}
+      []ls.Identifiable{}}}
 
   // Handle updates and control.
   func(control chan input, err chan error, list chan torrents) {
@@ -210,9 +213,9 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
         state.Settings = s
       case items := <-list:
         if items != nil {
-          state.List.SetItems(generalizeTorrents(*items))
+          state.List.SetItems(transform.GeneralizeTorrents(*items))
         } else {
-          state.List.SetItems([]Identifiable{})
+          state.List.SetItems([]ls.Identifiable{})
         }
         drawList(screen, *state)
       case c := <-control:
@@ -230,7 +233,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
             if len(items) > 0 {
               state.PendingOperation = &ListOperation{
                 c,
-                toTorrentList(items)}
+                transform.ToTorrentList(items)}
             }
           }
         case CURSOR_UP:
@@ -280,7 +283,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
           // Pause/Start selected torrents.
           items := state.List.GetSelection()
           if len(items) > 0 {
-            torrents := toTorrentList(items)
+            torrents := transform.ToTorrentList(items)
             _, isActive := idsAndNextState(torrents)
             op := ListActiveOperation{
                 isActive,
@@ -326,7 +329,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
 func drawList(window *gc.Window, state ListWindowState) {
   row, col := window.MaxYX()
 
-  maxTitleLength := maxInt(0, col - 71)
+  maxTitleLength := utils.MaxInt(0, col - 71)
 
   // Legend.
   legendDown := "Down"
