@@ -4,7 +4,7 @@ Feature-poor ncurses-based `transmission-daemon` client.
 
 ## Reason
 
-I wanted to learn some Go and do something useful in the process. Having an affinity for terminal and CLI tools, I figured this would be a nice learning project that I will be using on a daily basis myself.
+I wanted to learn some Go and do something useful in the process. Having an affinity for terminal and CLI tools, I figured this would be a nice project that I might be using on a daily basis myself.
 
 ## Features/screens
 
@@ -12,18 +12,20 @@ I wanted to learn some Go and do something useful in the process. Having an affi
 
 List of active torrents.
 
-`screenshot`
+![list](img/list.png)
+![adding torrent](img/new_torrent.png)
 
 Torrent details.
 
-`screenshot`
+![details](img/details.png)
+![speed limit](img/down_limit_dialog.png)
 
 ## Usage
 
 ### Launch Arguments
 
-`-h` -- hostname to connect to
-`-p` -- port number
+`-h` -- hostname to connect to; default: `localhost`
+`-p` -- port number; default: `9091`
 `-o` -- obfuscate all torrent and filenames (added this just for making screenshots)
 
 ### Controls
