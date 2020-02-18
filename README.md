@@ -6,6 +6,8 @@ Feature-poor ncurses-based `transmission-daemon` client.
 
 I wanted to learn some Go and do something useful in the process. Having an affinity for terminal and CLI tools, I figured this would be a nice project that I might be using on a daily basis myself.
 
+The client currently has a bare minimum of the daemon/remote client features that I use most often myself. Feel free to request/add more.
+
 ## Features/screens
 
 (For obvious reasons all torrent/filenames are obfuscated)
@@ -32,10 +34,12 @@ Torrent details.
 
 ### Controls
 
+All of the actions on torrents and files work either with current selection (if it's not empty) or with an item under the cursor.
+
 ##### List screen
 
-| Keys  | Purpose |
-|-------|---------|
+| Keys  | Action |
+|-------|--------|
 | F1    | Show cheatsheet |
 | q     | Exit |
 | jk↑↓  | Move cursor up and down |
@@ -50,8 +54,8 @@ Torrent details.
 
 ##### Details screen
 
-| Keys  | Purpose |
-|-------|---------|
+| Keys  | Action |
+|-------|--------|
 | F1    | Show cheatsheet |
 | qh←   | Go back to torrent list |
 | jk↑↓  | Move cursor up and down |
