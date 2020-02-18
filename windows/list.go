@@ -62,7 +62,7 @@ const (
   FOOTER_HEIGHT = 2
 )
 
-func NewListWindow(screen *gc.Window, client *transmission.Client) {
+func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bool) {
   reader := NewInputReader(screen)
   observer := make(chan gc.Key)
   reader.AddObserver(observer)
@@ -152,8 +152,13 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
     maxTitleLength := maxInt(0, width - 63)
     title := []rune(item.Name)
 
+    var croppedTitle []rune
     croppedTitleLength := minInt(maxTitleLength, len(title))
-    croppedTitle := title[0:croppedTitleLength]
+    if (obfuscated) {
+      croppedTitle = []rune(randomString(croppedTitleLength))
+    } else {
+      croppedTitle = title[0:croppedTitleLength]
+    }
     spacesLength := maxTitleLength - croppedTitleLength
 
     format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
@@ -258,7 +263,7 @@ func NewListWindow(screen *gc.Window, client *transmission.Client) {
             errorDrawer := func(err error) {
               drawError(screen, err)
             }
-            TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id())
+            TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id(), obfuscated)
           }
         case PAUSE:
           // Pause/Start selected torrents.

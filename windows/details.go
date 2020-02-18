@@ -22,7 +22,8 @@ func TorrentDetailsWindow(
   reader *InputReader,
   client *transmission.Client,
   errorDrawer func(error),
-  id int) {
+  id int,
+  obfuscated bool) {
   rows, cols := source.MaxYX()
 
   window, err := gc.NewWindow(rows-2, cols, 0, 0)
@@ -62,8 +63,14 @@ func TorrentDetailsWindow(
     // Format: # - Done - Priority - Get - Size - Name
     maxTitleLength := width - 31
     title := []rune(filename)
+
+    var croppedTitle []rune
     croppedTitleLength := minInt(maxTitleLength, len(title))
-    croppedTitle := title[0:croppedTitleLength]
+    if (obfuscated) {
+      croppedTitle = []rune(randomString(croppedTitleLength))
+    } else {
+      croppedTitle = title[0:croppedTitleLength]
+    }
     spacesLength := maxTitleLength - croppedTitleLength
 
     format := "%3d %-6s %-8s %-3s %-9s %s%s"

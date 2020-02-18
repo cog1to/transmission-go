@@ -8,13 +8,20 @@ import (
   "./transmission"
   "./windows"
   gc "./goncurses"
+  "flag"
 )
 
 func main() {
   C.setlocale(C.int(0), C.CString(""))
 
+  // Command line arguments.
+  var host = flag.String("h", "localhost", "Hostname")
+  var port = flag.Int("p", 9091, "Port")
+  var obfuscate = flag.Bool("o", false, "Obfuscate torrent and file names")
+  flag.Parse()
+
   // Initialize daemon connection
-  client := transmission.NewClient("localhost", 9091)
+  client := transmission.NewClient(*host, int32(*port))
 
   // Initialize curses.
   stdscr, gcerr := gc.Init()
@@ -39,6 +46,6 @@ func main() {
   stdscr.Keypad(true)
 
   // Show list.
-  windows.NewListWindow(stdscr, client)
+  windows.NewListWindow(stdscr, client, *obfuscate)
 }
 
