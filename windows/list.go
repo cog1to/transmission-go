@@ -114,16 +114,8 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
   }(out)
 
   // Handle resizing.
-  sigs := make(chan os.Signal, 1)
+  sigs := make(chan os.Signal)
   signal.Notify(sigs, syscall.SIGWINCH)
-  go func(control chan input) {
-    for {
-      sig := <-sigs
-      if sig == syscall.SIGWINCH {
-        control <- RESIZE
-      }
-    }
-  }(out)
 
   // Handle list update.
   items, err := make(chan torrents), make(chan error)
@@ -206,6 +198,14 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
   func(control chan input, err chan error, list chan torrents) {
     for {
       select {
+      case sig := <-sigs:
+        if sig == syscall.SIGWINCH {
+          // Resize window.
+          gc.End()
+          screen.Refresh()
+          state.List.UpdateOffset()
+          drawList(screen, *state)
+        }
       case e := <-err:
         state.Error = e
         drawList(screen, *state)
@@ -248,11 +248,6 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
         case CURSOR_PAGEDOWN:
           state.List.Page(1)
           state.PendingOperation = nil
-        case RESIZE:
-          // Resize window.
-          gc.End()
-          screen.Refresh()
-          state.List.UpdateOffset()
         case ADD:
           // Open new torrent dialog.
           state.PendingOperation = nil
