@@ -2,7 +2,6 @@ package windows
 
 import (
   "fmt"
-  "time"
   "os"
   "os/signal"
   "syscall"
@@ -12,35 +11,37 @@ import (
   ls "../list"
   "../utils"
   "../transform"
+  "../worker"
 )
 
 type torrents = *[]transmission.TorrentListItem
 type settings = *transmission.SessionSettings
-type input int
+type Input int
 
 const (
-  EXIT input = iota
-  RESIZE = iota
-  CURSOR_UP = iota
-  CURSOR_DOWN = iota
-  CURSOR_PAGEDOWN = iota
-  CURSOR_PAGEUP = iota
-  DETAILS = iota
-  DELETE = iota
-  DELETE_WITH_DATA = iota
-  ADD = iota
-  SELECT = iota
-  CLEAR_SELECT = iota
-  PAUSE = iota
-  DOWN_LIMIT = iota
-  UP_LIMIT = iota
-  HELP = iota
+  EXIT Input = iota
+  RESIZE
+  CURSOR_UP
+  CURSOR_DOWN
+  CURSOR_PAGEDOWN
+  CURSOR_PAGEUP
+  DETAILS
+  DELETE
+  DELETE_WITH_DATA
+  ADD
+  SELECT
+  CLEAR_SELECT
+  PAUSE
+  DOWN_LIMIT
+  UP_LIMIT
+  HELP
+  UNKNOWN
 )
 
 /* Operations */
 
 type ListOperation struct {
-  Operation input
+  Operation Input
   Items []transmission.TorrentListItem
 }
 
@@ -71,113 +72,28 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
   reader.AddObserver(observer)
   defer reader.RemoveObserver(observer)
 
-  // Handle user input.
-  out := make(chan input)
-  go func(control chan input) {
-    for {
-      c := <-observer
-      switch c {
-      case 'q':
-        control <- EXIT
-      case 'd':
-        control <- DELETE
-      case 'D':
-        control <- DELETE_WITH_DATA
-      case gc.KEY_RESIZE:
-        control <- RESIZE
-      case gc.KEY_UP, 'k':
-        control <- CURSOR_UP
-      case gc.KEY_DOWN, 'j':
-        control <- CURSOR_DOWN
-      case gc.KEY_PAGEDOWN:
-        control <- CURSOR_PAGEDOWN
-      case gc.KEY_PAGEUP:
-        control <- CURSOR_PAGEUP
-      case 'a':
-        control <- ADD
-      case ' ':
-        control <- SELECT
-      case 'c':
-        control <- CLEAR_SELECT
-      case 'l', gc.KEY_RIGHT, gc.KEY_RETURN:
-        control <- DETAILS
-      case 'p':
-        control <- PAUSE
-      case 'L':
-        control <- DOWN_LIMIT
-      case 'U':
-        control <- UP_LIMIT
-      case gc.KEY_F1:
-        control <- HELP
-      }
-    }
-  }(out)
-
   // Handle resizing.
   sigs := make(chan os.Signal)
   signal.Notify(sigs, syscall.SIGWINCH)
 
   // Handle list update.
   items, err := make(chan torrents), make(chan error)
-  go func() {
-    // First poll.
+  listWorker := worker.Repeating(3, func() {
     updateList(client, items, err)
-
-    for {
-      <-time.After(time.Duration(3) * time.Second)
-      updateList(client, items, err)
-    }
-  }()
+  })
 
   // Handle session update.
   session := make(chan settings)
-  go func() {
-    // First poll.
+  sessionWorker := worker.Repeating(3, func() {
     updateSession(client, session, err)
+  })
 
-    for {
-      <-time.After(time.Duration(3) * time.Second)
-      updateSession(client, session, err)
-    }
-  }()
+  // List of workers.
+  workers := worker.WorkerList{ listWorker, sessionWorker }
 
+  // Item formatter.
   formatter := func(torrent interface{}, width int) string {
-    item := torrent.(transmission.TorrentListItem)
-
-    maxTitleLength := utils.MaxInt(0, width - 71)
-    title := []rune(item.Name)
-
-    var croppedTitle []rune
-    croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
-    if (obfuscated) {
-      croppedTitle = []rune(utils.RandomString(croppedTitleLength))
-    } else {
-      croppedTitle = title[0:croppedTitleLength]
-    }
-    spacesLength := maxTitleLength - croppedTitleLength
-
-    // Format: ID - Title - %Done - ETA - Full size - Status - Ratio - Down speed - Up speed
-    format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-7s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
-
-    // %Done. Handle unknown state.
-    var done string
-    if item.SizeWhenDone == 0 {
-      done = fmt.Sprintf("%3.0f%%", 0)
-    } else {
-      done = fmt.Sprintf("%3.0f%%", (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
-    }
-
-    return fmt.Sprintf(format,
-      item.Id(),
-      string(croppedTitle),
-      strings.Repeat(" ", spacesLength),
-      done,
-      formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
-      formatSize(item.SizeWhenDone),
-      formatStatus(item.Status),
-      utils.MaxFloat32(0, item.Ratio),
-      formatSpeed(item.DownloadSpeed),
-      formatSpeed(item.UploadSpeed))
+    return formatTorrentListItem(torrent, width, obfuscated)
   }
 
   // Initial window state.
@@ -194,131 +110,130 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
       0,
       []ls.Identifiable{}}}
 
-  // Handle updates and control.
-  func(control chan input, err chan error, list chan torrents) {
-    for {
-      select {
-      case sig := <-sigs:
-        if sig == syscall.SIGWINCH {
-          // Resize window.
-          gc.End()
-          screen.Refresh()
-          state.List.UpdateOffset()
-          drawList(screen, *state)
-        }
-      case e := <-err:
-        state.Error = e
+  // Start polling.
+  workers.Start()
+  defer workers.Stop()
+
+  // Main loop.
+  for {
+    select {
+    case sig := <-sigs:
+      if sig == syscall.SIGWINCH {
+        // Resize window.
+        gc.End()
+        screen.Refresh()
+        state.List.UpdateOffset()
         drawList(screen, *state)
-      case s := <-session:
-        state.Settings = s
-      case items := <-list:
-        if items != nil {
-          state.List.SetItems(transform.GeneralizeTorrents(*items))
+      }
+    case e := <-err:
+      state.Error = e
+      drawList(screen, *state)
+    case s := <-session:
+      state.Settings = s
+    case list := <-items:
+      if list != nil {
+        state.List.SetItems(transform.GeneralizeTorrents(*list))
+      } else {
+        state.List.SetItems([]ls.Identifiable{})
+      }
+      drawList(screen, *state)
+    case inp := <-observer:
+      c := control(inp)
+      switch c {
+      case EXIT:
+        return
+      case DELETE, DELETE_WITH_DATA:
+        // Schedule selected items' deletion. To prevent accidental deletes, command needs to be confirmed.
+        if op := state.PendingOperation; op != nil && op.Operation == c {
+          state.List.Selection = []int{}
+          go handleOperation(screen, client, *op, items, err)
+          state.PendingOperation = nil
         } else {
-          state.List.SetItems([]ls.Identifiable{})
-        }
-        drawList(screen, *state)
-      case c := <-control:
-        switch c {
-        case EXIT:
-          return
-        case DELETE, DELETE_WITH_DATA:
-          // Schedule selected items' deletion. To prevent accidental deletes, command needs to be confirmed.
-          if op := state.PendingOperation; op != nil && op.Operation == c {
-            state.List.Selection = []int{}
-            go handleOperation(screen, client, *op, list, err)
-            state.PendingOperation = nil
-          } else {
-            items := state.List.GetSelection()
-            if len(items) > 0 {
-              state.PendingOperation = &ListOperation{
-                c,
-                transform.ToTorrentList(items)}
-            }
+          items := state.List.GetSelection()
+          if len(items) > 0 {
+            state.PendingOperation = &ListOperation{
+              c,
+              transform.ToTorrentList(items)}
           }
-        case CURSOR_UP:
-          state.List.MoveCursor(-1)
-          state.PendingOperation = nil
-        case CURSOR_DOWN:
-          state.List.MoveCursor(1)
-          state.PendingOperation = nil
-        case CURSOR_PAGEUP:
-          state.List.Page(-1)
-          state.PendingOperation = nil
-        case CURSOR_PAGEDOWN:
-          state.List.Page(1)
-          state.PendingOperation = nil
-        case ADD:
-          // Open new torrent dialog.
-          state.PendingOperation = nil
+        }
+      case CURSOR_UP:
+        state.List.MoveCursor(-1)
+        state.PendingOperation = nil
+      case CURSOR_DOWN:
+        state.List.MoveCursor(1)
+        state.PendingOperation = nil
+      case CURSOR_PAGEUP:
+        state.List.Page(-1)
+        state.PendingOperation = nil
+      case CURSOR_PAGEDOWN:
+        state.List.Page(1)
+        state.PendingOperation = nil
+      case ADD:
+        // Open new torrent dialog.
+        state.PendingOperation = nil
+        errorDrawer := func(err error) {
+          drawError(screen, err)
+        }
+        NewTorrentWindow(screen, reader, client, errorDrawer)
+        go updateList(client, items, err)
+      case SELECT:
+        // Toggle selection for item under cursor.
+        state.List.Select()
+        state.PendingOperation = nil
+      case CLEAR_SELECT:
+        // Clear selection.
+        state.List.ClearSelection()
+        state.PendingOperation = nil
+      case DETAILS:
+        // Go to torrent details.
+        if state.List.Cursor >= 0 {
+          item := state.List.Items[state.List.Cursor]
+          torrent := item.(transmission.TorrentListItem)
           errorDrawer := func(err error) {
             drawError(screen, err)
           }
-          NewTorrentWindow(screen, reader, client, errorDrawer)
-          go updateList(client, list, err)
-        case SELECT:
-          // Toggle selection for item under cursor.
-          state.List.Select()
-          state.PendingOperation = nil
-        case CLEAR_SELECT:
-          // Clear selection.
-          state.List.ClearSelection()
-          state.PendingOperation = nil
-        case DETAILS:
-          // Go to torrent details.
-          if state.List.Cursor >= 0 {
-            item := state.List.Items[state.List.Cursor]
-            torrent := item.(transmission.TorrentListItem)
-            errorDrawer := func(err error) {
-              drawError(screen, err)
-            }
+          worker.WithSuspended(workers, func() {
             TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id(), obfuscated)
-          }
-        case PAUSE:
-          // Pause/Start selected torrents.
-          items := state.List.GetSelection()
-          if len(items) > 0 {
-            torrents := transform.ToTorrentList(items)
-            _, isActive := idsAndNextState(torrents)
-            op := ListActiveOperation{
-                isActive,
-                ListOperation{
-                  c, torrents}}
-            go handleOperation(screen, client, op, list, err)
-          }
-        case DOWN_LIMIT:
+          })
+        }
+      case PAUSE:
+        // Pause/Start selected torrents.
+        list := state.List.GetSelection()
+        if len(list) > 0 {
+          torrents := transform.ToTorrentList(list)
+          _, isActive := idsAndNextState(torrents)
+          op := ListActiveOperation{
+              isActive,
+              ListOperation{
+                c, torrents}}
+          go handleOperation(screen, client, op, items, err)
+        }
+      case DOWN_LIMIT:
+        worker.WithSuspended(workers, func() {
           // Set global download limit.
           intPrompt(screen, reader, "Global download limit (KB):",
             state.Settings.DownloadSpeedLimit, state.Settings.DownloadSpeedLimitEnabled,
             func(limit int) { go setGlobalDownloadLimit(client, limit, session, err) },
             func(err error) { drawError(screen, err) })
-        case UP_LIMIT:
+        })
+      case UP_LIMIT:
+        worker.WithSuspended(workers, func() {
           // Set global upload limit.
           intPrompt(screen, reader, "Global upload limit (KB):",
             state.Settings.UploadSpeedLimit, state.Settings.UploadSpeedLimitEnabled,
             func(limit int) { go setGlobalUploadLimit(client, limit, session, err) },
             func(err error) { drawError(screen, err) })
-        case HELP:
-          items := []HelpItem{
-            HelpItem{ "q", "Exit" },
-            HelpItem{ "jk↑↓", "Move cursor up and down" },
-            HelpItem{ "l→", "Go to torrent details" },
-            HelpItem{ "Space", "Toggle selection" },
-            HelpItem{ "c", "Clear selection" },
-            HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
-            HelpItem{ "D", "Delete torrent(s) along with the data" },
-            HelpItem{ "p", "Start/stop selected torrent(s)" },
-            HelpItem{ "L", "Set global download speed limit" },
-            HelpItem{ "U", "Set global upload speed limit" }}
-          CheatsheetWindow(screen, reader, items)
-        }
-
-        // Redraw.
-        drawList(screen, *state)
+        })
+      case HELP:
+        worker.WithSuspended(workers, func() {
+          showMainCheatSheet(screen, reader)
+        })
       }
-    }
-  }(out, err, items)
 
+      // Redraw.
+      drawList(screen, *state)
+    }
+  }
 }
 
 func drawList(window *gc.Window, state ListWindowState) {
@@ -346,6 +261,7 @@ func drawList(window *gc.Window, state ListWindowState) {
 
   // Status.
   window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
+  window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   if op := state.PendingOperation; op != nil {
     var idsString string
     if len(op.Items) == 1 {
@@ -376,13 +292,28 @@ func drawError(window *gc.Window, err error) {
 
   // Status.
   window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
+  window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   if err != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", err)
-  } else {
-    window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   }
 
   window.Refresh()
+}
+
+func showMainCheatSheet(parent *gc.Window, reader *InputReader) {
+  items := []HelpItem{
+    HelpItem{ "q", "Exit" },
+    HelpItem{ "jk↑↓", "Move cursor up and down" },
+    HelpItem{ "l→", "Go to torrent details" },
+    HelpItem{ "Space", "Toggle selection" },
+    HelpItem{ "c", "Clear selection" },
+    HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
+    HelpItem{ "D", "Delete torrent(s) along with the data" },
+    HelpItem{ "p", "Start/stop selected torrent(s)" },
+    HelpItem{ "L", "Set global download speed limit" },
+    HelpItem{ "U", "Set global upload speed limit" }}
+
+  CheatsheetWindow(parent, reader, items)
 }
 
 /* Network */
@@ -478,3 +409,81 @@ func idsAndNextState(torrents []transmission.TorrentListItem) ([]int, bool) {
   return ids, !isActive
 }
 
+func control(char gc.Key) Input {
+  switch char {
+  case 'q':
+    return EXIT
+  case 'd':
+    return DELETE
+  case 'D':
+    return DELETE_WITH_DATA
+  case gc.KEY_RESIZE:
+    return RESIZE
+  case gc.KEY_UP, 'k':
+    return CURSOR_UP
+  case gc.KEY_DOWN, 'j':
+    return CURSOR_DOWN
+  case gc.KEY_PAGEDOWN:
+    return CURSOR_PAGEDOWN
+  case gc.KEY_PAGEUP:
+    return CURSOR_PAGEUP
+  case 'a':
+    return ADD
+  case ' ':
+    return SELECT
+  case 'c':
+    return CLEAR_SELECT
+  case 'l', gc.KEY_RIGHT, gc.KEY_RETURN:
+    return DETAILS
+  case 'p':
+    return PAUSE
+  case 'L':
+    return DOWN_LIMIT
+  case 'U':
+    return UP_LIMIT
+  case gc.KEY_F1:
+    return HELP
+  }
+
+  return UNKNOWN
+}
+
+func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) string {
+  item := torrent.(transmission.TorrentListItem)
+
+  maxTitleLength := utils.MaxInt(0, width - 71)
+  title := []rune(item.Name)
+
+  var croppedTitle []rune
+  croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
+  if (obfuscated) {
+    croppedTitle = []rune(utils.RandomString(croppedTitleLength))
+  } else {
+    croppedTitle = title[0:croppedTitleLength]
+  }
+  spacesLength := maxTitleLength - croppedTitleLength
+
+  // Format: ID - Title - %Done - ETA - Full size - Status - Ratio - Down speed - Up speed
+  format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-7s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+
+  // %Done. Handle unknown state.
+  var done string
+  if item.SizeWhenDone == 0 {
+    done = fmt.Sprintf("%3.0f%%", 0)
+  } else {
+    done = fmt.Sprintf("%3.0f%%",
+      (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+  }
+
+  return fmt.Sprintf(format,
+    item.Id(),
+    string(croppedTitle),
+    strings.Repeat(" ", spacesLength),
+    done,
+    formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
+    formatSize(item.SizeWhenDone),
+    formatStatus(item.Status),
+    utils.MaxFloat32(0, item.Ratio),
+    formatSpeed(item.DownloadSpeed),
+    formatSpeed(item.UploadSpeed))
+}

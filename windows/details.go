@@ -4,12 +4,12 @@ import (
   gc "../goncurses"
   "../transmission"
   wchar "../cgo.wchar"
-  "time"
   "fmt"
   "strings"
   "../list"
   "../utils"
   "../transform"
+  "../worker"
 )
 
 const DETAILS_HEADER_HEIGHT = 4
@@ -36,22 +36,17 @@ func TorrentDetailsWindow(
     errorDrawer(err)
     return
   }
+  defer window.Delete()
 
   // Handle user input.
   observer := make(chan gc.Key)
   reader.AddObserver(observer)
+  defer reader.RemoveObserver(observer)
 
   // Handle details update.
   details, e := make(chan *transmission.TorrentDetails), make(chan error)
-  go func() {
-    // First poll.
-    getDetails(client, id, details, e)
-
-    for {
-      <-time.After(time.Duration(3) * time.Second)
-      getDetails(client, id, details, e)
-    }
-  }()
+  workers := worker.WorkerList{
+    worker.Repeating(3, func() { getDetails(client, id, details, e) })}
 
   var state *DetailsWindowState
 
@@ -100,8 +95,9 @@ func TorrentDetailsWindow(
       0,
       []list.Identifiable{}}}
 
-  // Initial draw.
-  drawTorrentDetailsWindow(window, *state, obfuscated)
+  // Start polling.
+  workers.Start()
+  defer workers.Stop()
 
   Loop: for {
     select {
@@ -138,28 +134,25 @@ func TorrentDetailsWindow(
           go updateWanted(client, id, ids, wanted, details, e)
         }
       case 'L':
-        // Change download limit.
-        intPrompt(window, reader, "Set download limit (KB):",
-          state.Torrent.DownloadLimit, state.Torrent.DownloadLimited,
-          func(limit int) { go setDownloadLimit(client, id, limit, details, e) },
-          func(err error) { go func() { e <- err }() })
+        worker.WithSuspended(workers, func() {
+          // Change download limit.
+          intPrompt(window, reader, "Set download limit (KB):",
+            state.Torrent.DownloadLimit, state.Torrent.DownloadLimited,
+            func(limit int) { go setDownloadLimit(client, id, limit, details, e) },
+            func(err error) { go func() { e <- err }() })
+        })
       case 'U':
-        // Change upload limit.
-        intPrompt(window, reader, "Set upload limit (KB):",
-          state.Torrent.UploadLimit, state.Torrent.UploadLimited,
-          func(limit int) { go setUploadLimit(client, id, limit, details, e) },
-          func(err error) { go func() { e <- err }() })
+        worker.WithSuspended(workers, func() {
+          // Change upload limit.
+          intPrompt(window, reader, "Set upload limit (KB):",
+            state.Torrent.UploadLimit, state.Torrent.UploadLimited,
+            func(limit int) { go setUploadLimit(client, id, limit, details, e) },
+            func(err error) { go func() { e <- err }() })
+        })
       case gc.KEY_F1:
-        items := []HelpItem{
-          HelpItem{ "qh←", "Go back to torrent list" },
-          HelpItem{ "jk↑↓", "Move cursor up and down" },
-          HelpItem{ "Space", "Toggle selection" },
-          HelpItem{ "c", "Clear selection" },
-          HelpItem{ "g", "Download/Don't download selected file(s)" },
-          HelpItem{ "p", "Change priority of selected file(s)" },
-          HelpItem{ "L", "Set torrent's download speed limit" },
-          HelpItem{ "U", "Set torrent's upload speed limit" }}
-        CheatsheetWindow(window, reader, items)
+        worker.WithSuspended(workers, func() {
+          showDetailsCheatSheet(window, reader)
+        })
       }
     case torrent := <-details:
       state.Torrent = torrent
@@ -174,9 +167,6 @@ func TorrentDetailsWindow(
 
     drawTorrentDetailsWindow(window, *state, obfuscated)
   }
-
-  reader.RemoveObserver(observer)
-  window.Delete()
 }
 
 func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState, obfuscated bool) {
@@ -242,6 +232,20 @@ func drawTorrentDetailsWindow(window *gc.Window, state DetailsWindowState, obfus
   state.List.Draw()
 
   window.Refresh()
+}
+
+func showDetailsCheatSheet(parent *gc.Window, reader *InputReader) {
+  items := []HelpItem{
+    HelpItem{ "qh←", "Go back to torrent list" },
+    HelpItem{ "jk↑↓", "Move cursor up and down" },
+    HelpItem{ "Space", "Toggle selection" },
+    HelpItem{ "c", "Clear selection" },
+    HelpItem{ "g", "Download/Don't download selected file(s)" },
+    HelpItem{ "p", "Change priority of selected file(s)" },
+    HelpItem{ "L", "Set torrent's download speed limit" },
+    HelpItem{ "U", "Set torrent's upload speed limit" }}
+
+  CheatsheetWindow(parent, reader, items)
 }
 
 func getDetails(client *transmission.Client, id int, tor chan *transmission.TorrentDetails, err chan error) {
