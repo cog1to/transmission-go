@@ -45,7 +45,10 @@ func main() {
   // Arrow keys support.
   stdscr.Keypad(true)
 
-  // Show list.
-  windows.NewListWindow(stdscr, client, *obfuscate)
+  // Initialize window manager.
+  manager := windows.NewWindowManager(stdscr)
+  listWindow := windows.NewListWindow(stdscr, client, *obfuscate, manager.Draw, manager.Exit, manager.AddWindow, manager.RemoveWindow)
+  manager.AddWindow(listWindow)
+  manager.Start()
 }
 

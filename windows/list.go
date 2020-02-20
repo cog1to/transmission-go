@@ -1,22 +1,24 @@
 package windows
 
 import (
-  "fmt"
-  "os"
-  "os/signal"
-  "syscall"
   "strings"
+  "fmt"
   gc "../goncurses"
   "../transmission"
-  ls "../list"
-  "../utils"
   "../transform"
+  "../list"
   "../worker"
+  "../utils"
 )
 
-type torrents = *[]transmission.TorrentListItem
-type settings = *transmission.SessionSettings
 type Input int
+type Settings *transmission.SessionSettings
+
+const (
+  INFO_HEIGHT = 4
+  HEADER_HEIGHT = 2
+  FOOTER_HEIGHT = 2
+)
 
 const (
   EXIT Input = iota
@@ -51,55 +53,112 @@ type ListActiveOperation struct {
 }
 
 type ListWindowState struct {
-  Rows, Cols int
   PendingOperation *ListOperation
   Error error
-  List ls.List
-  Settings settings
+  List list.List
+  Settings Settings
 }
 
-/* Render loop */
 
-const (
-  INFO_HEIGHT = 4
-  HEADER_HEIGHT = 2
-  FOOTER_HEIGHT = 2
-)
+type ListWindow struct {
+  window *gc.Window
+  client *transmission.Client
+  state *ListWindowState
+  workers worker.WorkerList
+  exit chan bool
+  draw chan bool
+  sub func(Window)
+  rem func(Window)
+}
 
-func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bool) {
-  reader := NewInputReader(screen)
-  observer := make(chan gc.Key)
-  reader.AddObserver(observer)
-  defer reader.RemoveObserver(observer)
+func (window *ListWindow) IsFullScreen() bool {
+  return true
+}
 
-  // Handle resizing.
-  sigs := make(chan os.Signal)
-  signal.Notify(sigs, syscall.SIGWINCH)
+func (window *ListWindow) SetActive(active bool) {
+  if active {
+    window.workers.Start()
+  } else {
+    window.workers.Stop()
+  }
+}
 
-  // Handle list update.
-  items, err := make(chan torrents), make(chan error)
-  listWorker := worker.Repeating(3, func() {
-    updateList(client, items, err)
-  })
+func (window *ListWindow) Draw() {
+  drawList(window.window, *window.state)
+}
 
-  // Handle session update.
-  session := make(chan settings)
-  sessionWorker := worker.Repeating(3, func() {
-    updateSession(client, session, err)
-  })
+func (window *ListWindow) OnInput(key gc.Key) {
+  go func() {
+    command := control(key)
+    switch command {
+    case EXIT:
+      window.exit <- true
+      return
+    case DELETE, DELETE_WITH_DATA:
+      // Schedule selected items' deletion. To prevent accidental deletes, command needs to be confirmed.
+      if op := window.state.PendingOperation; op != nil && op.Operation == command {
+        window.state.List.Selection = []int{}
+        handleOperation(window.client, *op, window.state)
+        window.state.PendingOperation = nil
+      } else {
+        items := window.state.List.GetSelection()
+        if len(items) > 0 {
+          window.state.PendingOperation = &ListOperation{
+            command,
+            transform.ToTorrentList(items)}
+        }
+      }
+    case CURSOR_UP:
+      window.state.List.MoveCursor(-1)
+      window.state.PendingOperation = nil
+    case CURSOR_DOWN:
+      window.state.List.MoveCursor(1)
+      window.state.PendingOperation = nil
+    case CURSOR_PAGEUP:
+      window.state.List.Page(-1)
+      window.state.PendingOperation = nil
+    case CURSOR_PAGEDOWN:
+      window.state.List.Page(1)
+      window.state.PendingOperation = nil
+    case SELECT:
+      // Toggle selection for item under cursor.
+      window.state.List.Select()
+      window.state.PendingOperation = nil
+    case CLEAR_SELECT:
+      // Clear selection.
+      window.state.List.ClearSelection()
+      window.state.PendingOperation = nil
+    case PAUSE:
+      // Pause/Start selected torrents.
+      items := window.state.List.GetSelection()
+      if len(items) > 0 {
+        torrents := transform.ToTorrentList(items)
+        _, isActive := idsAndNextState(torrents)
+        op := ListActiveOperation{
+            isActive,
+            ListOperation{
+              command, torrents}}
+        handleOperation(window.client, op, window.state)
+      }
+    }
 
-  // List of workers.
-  workers := worker.WorkerList{ listWorker, sessionWorker }
+    window.draw <- true
+  }()
+}
+
+func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bool, draw chan bool, exit chan bool, sub func(Window), rem func(Window)) *ListWindow {
+  rows, cols := parent.MaxYX()
+  window := parent.Sub(rows, cols, 0, 0)
 
   // Item formatter.
   formatter := func(torrent interface{}, width int) string {
     return formatTorrentListItem(torrent, width, obfuscated)
   }
 
-  // Initial window state.
+  // State.
   state := &ListWindowState{
-    List: ls.List{
-      screen,
+    List: list.List{
+      window,
       formatter,
       HEADER_HEIGHT,
       FOOTER_HEIGHT,
@@ -108,132 +167,74 @@ func NewListWindow(screen *gc.Window, client *transmission.Client, obfuscated bo
       0,
       []int{},
       0,
-      []ls.Identifiable{}}}
+      []list.Identifiable{}}}
 
-  // Start polling.
-  workers.Start()
-  defer workers.Stop()
+  // Handle list update.
+  listWorker := worker.Repeating(3, func() {
+    updateList(client, state)
+    draw <- true
+  })
 
-  // Main loop.
-  for {
-    select {
-    case sig := <-sigs:
-      if sig == syscall.SIGWINCH {
-        // Resize window.
-        gc.End()
-        screen.Refresh()
-        state.List.UpdateOffset()
-        drawList(screen, *state)
-      }
-    case e := <-err:
-      state.Error = e
-      drawList(screen, *state)
-    case s := <-session:
-      state.Settings = s
-    case list := <-items:
-      if list != nil {
-        state.List.SetItems(transform.GeneralizeTorrents(*list))
-      } else {
-        state.List.SetItems([]ls.Identifiable{})
-      }
-      drawList(screen, *state)
-    case inp := <-observer:
-      c := control(inp)
-      switch c {
-      case EXIT:
-        return
-      case DELETE, DELETE_WITH_DATA:
-        // Schedule selected items' deletion. To prevent accidental deletes, command needs to be confirmed.
-        if op := state.PendingOperation; op != nil && op.Operation == c {
-          state.List.Selection = []int{}
-          go handleOperation(screen, client, *op, items, err)
-          state.PendingOperation = nil
-        } else {
-          items := state.List.GetSelection()
-          if len(items) > 0 {
-            state.PendingOperation = &ListOperation{
-              c,
-              transform.ToTorrentList(items)}
-          }
-        }
-      case CURSOR_UP:
-        state.List.MoveCursor(-1)
-        state.PendingOperation = nil
-      case CURSOR_DOWN:
-        state.List.MoveCursor(1)
-        state.PendingOperation = nil
-      case CURSOR_PAGEUP:
-        state.List.Page(-1)
-        state.PendingOperation = nil
-      case CURSOR_PAGEDOWN:
-        state.List.Page(1)
-        state.PendingOperation = nil
-      case ADD:
-        // Open new torrent dialog.
-        state.PendingOperation = nil
-        errorDrawer := func(err error) {
-          drawError(screen, err)
-        }
-        NewTorrentWindow(screen, reader, client, errorDrawer)
-        go updateList(client, items, err)
-      case SELECT:
-        // Toggle selection for item under cursor.
-        state.List.Select()
-        state.PendingOperation = nil
-      case CLEAR_SELECT:
-        // Clear selection.
-        state.List.ClearSelection()
-        state.PendingOperation = nil
-      case DETAILS:
-        // Go to torrent details.
-        if state.List.Cursor >= 0 {
-          item := state.List.Items[state.List.Cursor]
-          torrent := item.(transmission.TorrentListItem)
-          errorDrawer := func(err error) {
-            drawError(screen, err)
-          }
-          worker.WithSuspended(workers, func() {
-            TorrentDetailsWindow(screen, reader, client, errorDrawer, torrent.Id(), obfuscated)
-          })
-        }
-      case PAUSE:
-        // Pause/Start selected torrents.
-        list := state.List.GetSelection()
-        if len(list) > 0 {
-          torrents := transform.ToTorrentList(list)
-          _, isActive := idsAndNextState(torrents)
-          op := ListActiveOperation{
-              isActive,
-              ListOperation{
-                c, torrents}}
-          go handleOperation(screen, client, op, items, err)
-        }
-      case DOWN_LIMIT:
-        worker.WithSuspended(workers, func() {
-          // Set global download limit.
-          intPrompt(screen, reader, "Global download limit (KB):",
-            state.Settings.DownloadSpeedLimit, state.Settings.DownloadSpeedLimitEnabled,
-            func(limit int) { go setGlobalDownloadLimit(client, limit, session, err) },
-            func(err error) { drawError(screen, err) })
-        })
-      case UP_LIMIT:
-        worker.WithSuspended(workers, func() {
-          // Set global upload limit.
-          intPrompt(screen, reader, "Global upload limit (KB):",
-            state.Settings.UploadSpeedLimit, state.Settings.UploadSpeedLimitEnabled,
-            func(limit int) { go setGlobalUploadLimit(client, limit, session, err) },
-            func(err error) { drawError(screen, err) })
-        })
-      case HELP:
-        worker.WithSuspended(workers, func() {
-          showMainCheatSheet(screen, reader)
-        })
-      }
+  // Handle session update.
+  sessionWorker := worker.Repeating(3, func() {
+    updateSession(client, state)
+    draw <- true
+  })
 
-      // Redraw.
-      drawList(screen, *state)
-    }
+  // List of workers.
+  workers := worker.WorkerList{ listWorker, sessionWorker }
+
+  return &ListWindow{
+    window,
+    client,
+    state,
+    workers,
+    exit,
+    draw,
+    sub,
+    rem}
+}
+
+/* Drawing */
+
+func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) string {
+  item := torrent.(transmission.TorrentListItem)
+
+  maxTitleLength := utils.MaxInt(0, width - 71)
+  title := []rune(item.Name)
+
+  var croppedTitle []rune
+  croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
+  if (obfuscated) {
+    croppedTitle = []rune(utils.RandomString(croppedTitleLength))
+  } else {
+    croppedTitle = title[0:croppedTitleLength]
   }
+  spacesLength := maxTitleLength - croppedTitleLength
+
+  // Format: ID - Title - %Done - ETA - Full size - Status - Ratio - Down speed - Up speed
+  format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-7s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+
+  // %Done. Handle unknown state.
+  var done string
+  if item.SizeWhenDone == 0 {
+    done = fmt.Sprintf("%3.0f%%", 0)
+  } else {
+    done = fmt.Sprintf("%3.0f%%",
+      (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+  }
+
+  return fmt.Sprintf(format,
+    item.Id(),
+    string(croppedTitle),
+    strings.Repeat(" ", spacesLength),
+    done,
+    formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
+    formatSize(item.SizeWhenDone),
+    formatStatus(item.Status),
+    utils.MaxFloat32(0, item.Ratio),
+    formatSpeed(item.DownloadSpeed),
+    formatSpeed(item.UploadSpeed))
 }
 
 func drawList(window *gc.Window, state ListWindowState) {
@@ -280,45 +281,34 @@ func drawList(window *gc.Window, state ListWindowState) {
     }
   } else if state.Error != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", state.Error)
-  } else {
-    window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   }
 
   window.Refresh()
-}
-
-func drawError(window *gc.Window, err error) {
-  row, col := window.MaxYX()
-
-  // Status.
-  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
-  window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
-  if err != nil {
-    window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", err)
-  }
-
-  window.Refresh()
-}
-
-func showMainCheatSheet(parent *gc.Window, reader *InputReader) {
-  items := []HelpItem{
-    HelpItem{ "q", "Exit" },
-    HelpItem{ "jk↑↓", "Move cursor up and down" },
-    HelpItem{ "l→", "Go to torrent details" },
-    HelpItem{ "Space", "Toggle selection" },
-    HelpItem{ "c", "Clear selection" },
-    HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
-    HelpItem{ "D", "Delete torrent(s) along with the data" },
-    HelpItem{ "p", "Start/stop selected torrent(s)" },
-    HelpItem{ "L", "Set global download speed limit" },
-    HelpItem{ "U", "Set global upload speed limit" }}
-
-  CheatsheetWindow(parent, reader, items)
 }
 
 /* Network */
 
-func handleOperation(screen *gc.Window, client *transmission.Client, operation interface{}, items chan torrents, err chan error) {
+func updateList(client *transmission.Client, state *ListWindowState) {
+  list, err := client.List()
+
+  if list != nil {
+    state.List.Items = transform.GeneralizeTorrents(*list)
+  }
+
+  state.Error = err
+}
+
+func updateSession(client *transmission.Client, state *ListWindowState) {
+  settings, err := client.GetSessionSettings()
+
+  if settings != nil {
+    state.Settings = settings
+  }
+
+  state.Error = err
+}
+
+func handleOperation(client *transmission.Client, operation interface{}, state *ListWindowState) {
   var e error
 
   switch operation.(type) {
@@ -342,72 +332,12 @@ func handleOperation(screen *gc.Window, client *transmission.Client, operation i
   }
 
   if e != nil {
-    err <- e
+    state.Error = e
   } else {
-    updateList(client, items, err)
+    updateList(client, state)
   }
 }
-
-func updateList(client *transmission.Client, items chan torrents, err chan error) {
-  list, e := client.List()
-  err <- e
-  items <- list
-}
-
-func setGlobalDownloadLimit(client *transmission.Client, limit int, session chan settings, err chan error) {
-  e := client.SetGlobalDownloadLimit(limit)
-
-  if e != nil {
-    err <- e
-  } else {
-    updateSession(client, session, err)
-  }
-}
-
-func setGlobalUploadLimit(client *transmission.Client, limit int, session chan settings, err chan error) {
-  e := client.SetGlobalUploadLimit(limit)
-
-  if e != nil {
-    err <- e
-  } else {
-    updateSession(client, session, err)
-  }
-}
-
-func updateSession(client *transmission.Client, session chan settings, err chan error) {
-  s, e := client.GetSessionSettings()
-  err <- e
-  session <- s
-}
-
 /* Utils */
-
-func mapToString(slice []transmission.TorrentListItem) []string {
-  output := make([]string, len(slice))
-  for index, element := range slice {
-    output[index] = fmt.Sprintf("%d", element.Id())
-  }
-  return output
-}
-
-func mapToIds(slice []transmission.TorrentListItem) []int {
-  output := make([]int, len(slice))
-  for index, item := range slice {
-    output[index] = item.Id()
-  }
-  return output
-}
-
-func idsAndNextState(torrents []transmission.TorrentListItem) ([]int, bool) {
-  isActive := false
-  ids := make([]int, len(torrents))
-  for i, torrent := range torrents {
-    isActive = isActive || torrent.Status != transmission.TR_STATUS_STOPPED
-    ids[i] = torrent.Id()
-  }
-
-  return ids, !isActive
-}
 
 func control(char gc.Key) Input {
   switch char {
@@ -448,42 +378,29 @@ func control(char gc.Key) Input {
   return UNKNOWN
 }
 
-func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) string {
-  item := torrent.(transmission.TorrentListItem)
-
-  maxTitleLength := utils.MaxInt(0, width - 71)
-  title := []rune(item.Name)
-
-  var croppedTitle []rune
-  croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
-  if (obfuscated) {
-    croppedTitle = []rune(utils.RandomString(croppedTitleLength))
-  } else {
-    croppedTitle = title[0:croppedTitleLength]
+func mapToString(slice []transmission.TorrentListItem) []string {
+  output := make([]string, len(slice))
+  for index, element := range slice {
+    output[index] = fmt.Sprintf("%d", element.Id())
   }
-  spacesLength := maxTitleLength - croppedTitleLength
+  return output
+}
 
-  // Format: ID - Title - %Done - ETA - Full size - Status - Ratio - Down speed - Up speed
-  format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-7s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+func mapToIds(slice []transmission.TorrentListItem) []int {
+  output := make([]int, len(slice))
+  for index, item := range slice {
+    output[index] = item.Id()
+  }
+  return output
+}
 
-  // %Done. Handle unknown state.
-  var done string
-  if item.SizeWhenDone == 0 {
-    done = fmt.Sprintf("%3.0f%%", 0)
-  } else {
-    done = fmt.Sprintf("%3.0f%%",
-      (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+func idsAndNextState(torrents []transmission.TorrentListItem) ([]int, bool) {
+  isActive := false
+  ids := make([]int, len(torrents))
+  for i, torrent := range torrents {
+    isActive = isActive || torrent.Status != transmission.TR_STATUS_STOPPED
+    ids[i] = torrent.Id()
   }
 
-  return fmt.Sprintf(format,
-    item.Id(),
-    string(croppedTitle),
-    strings.Repeat(" ", spacesLength),
-    done,
-    formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
-    formatSize(item.SizeWhenDone),
-    formatStatus(item.Status),
-    utils.MaxFloat32(0, item.Ratio),
-    formatSpeed(item.DownloadSpeed),
-    formatSpeed(item.UploadSpeed))
+  return ids, !isActive
 }
