@@ -65,10 +65,7 @@ type ListWindow struct {
   client *transmission.Client
   state *ListWindowState
   workers worker.WorkerList
-  exit chan bool
-  draw chan bool
-  sub func(Window)
-  rem func(Window)
+  manager *WindowManager
 }
 
 func (window *ListWindow) IsFullScreen() bool {
@@ -87,12 +84,16 @@ func (window *ListWindow) Draw() {
   drawList(window.window, *window.state)
 }
 
+func (window *ListWindow) Resize() {
+  // We're fullscreen, so we don't need to resize.
+}
+
 func (window *ListWindow) OnInput(key gc.Key) {
   go func() {
     command := control(key)
     switch command {
     case EXIT:
-      window.exit <- true
+      window.manager.Exit <- true
       return
     case DELETE, DELETE_WITH_DATA:
       // Schedule selected items' deletion. To prevent accidental deletes, command needs to be confirmed.
@@ -140,13 +141,15 @@ func (window *ListWindow) OnInput(key gc.Key) {
               command, torrents}}
         handleOperation(window.client, op, window.state)
       }
+    case HELP:
+      showListCheatsheet(window.window, window.manager)
     }
 
-    window.draw <- true
+    window.manager.Draw <- true
   }()
 }
 
-func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bool, draw chan bool, exit chan bool, sub func(Window), rem func(Window)) *ListWindow {
+func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bool, manager *WindowManager) *ListWindow {
   rows, cols := parent.MaxYX()
   window := parent.Sub(rows, cols, 0, 0)
 
@@ -172,13 +175,13 @@ func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bo
   // Handle list update.
   listWorker := worker.Repeating(3, func() {
     updateList(client, state)
-    draw <- true
+    manager.Draw <- true
   })
 
   // Handle session update.
   sessionWorker := worker.Repeating(3, func() {
     updateSession(client, state)
-    draw <- true
+    manager.Draw <- true
   })
 
   // List of workers.
@@ -189,10 +192,7 @@ func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bo
     client,
     state,
     workers,
-    exit,
-    draw,
-    sub,
-    rem}
+    manager}
 }
 
 /* Drawing */
@@ -337,6 +337,27 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
     updateList(client, state)
   }
 }
+
+
+/* Navigation */
+
+func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
+  items := []HelpItem{
+    HelpItem{ "q", "Exit" },
+    HelpItem{ "jk↑↓", "Move cursor up and down" },
+    HelpItem{ "l→", "Go to torrent details" },
+    HelpItem{ "Space", "Toggle selection" },
+    HelpItem{ "c", "Clear selection" },
+    HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
+    HelpItem{ "D", "Delete torrent(s) along with the data" },
+    HelpItem{ "p", "Start/stop selected torrent(s)" },
+    HelpItem{ "L", "Set global download speed limit" },
+    HelpItem{ "U", "Set global upload speed limit" }}
+
+  cheatsheet := NewCheatsheet(parent, items, manager)
+  manager.AddWindow(cheatsheet)
+}
+
 /* Utils */
 
 func control(char gc.Key) Input {

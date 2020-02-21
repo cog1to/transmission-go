@@ -9,6 +9,7 @@ import (
   "./windows"
   gc "./goncurses"
   "flag"
+  "./logger"
 )
 
 func main() {
@@ -28,8 +29,10 @@ func main() {
   if gcerr != nil {
     log.Fatal(gcerr)
   }
-
   defer gc.End()
+
+  logger.Open("transmission.log")
+  defer logger.Deinit()
 
   // Colors.
   gc.StartColor()
@@ -47,7 +50,7 @@ func main() {
 
   // Initialize window manager.
   manager := windows.NewWindowManager(stdscr)
-  listWindow := windows.NewListWindow(stdscr, client, *obfuscate, manager.Draw, manager.Exit, manager.AddWindow, manager.RemoveWindow)
+  listWindow := windows.NewListWindow(stdscr, client, *obfuscate, manager)
   manager.AddWindow(listWindow)
   manager.Start()
 }

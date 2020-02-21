@@ -13,6 +13,7 @@ type InputReader interface {
 
 type Window interface {
   Draw()
+  Resize()
   IsFullScreen()bool
   SetActive(bool)
   InputReader
@@ -115,6 +116,13 @@ func (manager *WindowManager) Redraw() {
   }
 }
 
+func (manager *WindowManager) Resize() {
+  for _, window := range manager.windows {
+    window.Resize()
+    window.Draw()
+  }
+}
+
 func (manager *WindowManager) Start() {
   defer gc.End()
 
@@ -126,6 +134,7 @@ func (manager *WindowManager) Start() {
       if sig == syscall.SIGWINCH {
         gc.End()
         manager.root.Refresh()
+        manager.Resize()
         manager.Redraw()
       }
     case input := <-manager.input:
