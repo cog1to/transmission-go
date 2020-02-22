@@ -167,8 +167,6 @@ func (manager *WindowManager) Top() Window {
 }
 
 func (manager *WindowManager) Start() {
-  defer gc.End()
-
   for {
     select {
     case <-manager.Draw:

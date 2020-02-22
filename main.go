@@ -30,6 +30,9 @@ func main() {
   }
   defer gc.End()
 
+  // Screen init.
+  stdscr.Refresh()
+
   // Colors.
   gc.StartColor()
   gc.UseDefaultColors()
