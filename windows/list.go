@@ -251,7 +251,7 @@ func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) stri
   // %Done. Handle unknown state.
   var done string
   if item.SizeWhenDone == 0 {
-    done = fmt.Sprintf("%3.0f%%", 0)
+    done = "  0%"
   } else {
     done = fmt.Sprintf("%3.0f%%",
       (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
