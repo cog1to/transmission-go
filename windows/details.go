@@ -117,6 +117,8 @@ func (window *TorrentDetailsWindow) OnInput(key gc.Key) {
       func(err error) {
         state.Error = err
       })
+  case gc.KEY_F1:
+    showDetailsCheatsheet(window.window, window.manager)
   }
 
   go func() {
@@ -129,7 +131,7 @@ func (window *TorrentDetailsWindow) Draw() {
 }
 
 func (window *TorrentDetailsWindow) Resize() {
-  // We're fullscreen, so we don't need to resize.
+  window.window.Refresh()
 }
 
 func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent *gc.Window, manager *WindowManager) *TorrentDetailsWindow {
@@ -279,6 +281,21 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
   drawError(window, state.Error)
 
   window.Refresh()
+}
+
+func showDetailsCheatsheet(parent *gc.Window, manager *WindowManager) {
+  items := []HelpItem{
+    HelpItem{ "qh←", "Go back to torrent list" },
+    HelpItem{ "jk↑↓", "Move cursor up and down" },
+    HelpItem{ "Space", "Toggle selection" },
+    HelpItem{ "c", "Clear selection" },
+    HelpItem{ "g", "Download/Don't download selected file(s)" },
+    HelpItem{ "p", "Change priority of selected file(s)" },
+    HelpItem{ "L", "Set torrent's download speed limit" },
+    HelpItem{ "U", "Set torrent's upload speed limit" }}
+
+  cheatsheet := NewCheatsheet(parent, items, manager)
+  manager.AddWindow(cheatsheet)
 }
 
 /* Network */
