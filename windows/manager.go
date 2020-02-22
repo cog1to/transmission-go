@@ -128,7 +128,21 @@ func (manager *WindowManager) RemoveInputReader(rdr InputReader) {
 }
 
 func (manager *WindowManager) Redraw() {
-  for _, window := range manager.windows {
+  var fullScreenIndex int = -1
+  for ind := len(manager.windows) - 1; ind >= 0; ind-- {
+    if manager.windows[ind].IsFullScreen() {
+      fullScreenIndex = ind
+    }
+  }
+
+  var windows []Window
+  if fullScreenIndex > 0 {
+    windows = manager.windows[fullScreenIndex:]
+  } else {
+    windows = manager.windows
+  }
+
+  for _, window := range windows {
     window.Draw()
   }
 }
