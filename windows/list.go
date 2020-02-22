@@ -135,7 +135,7 @@ func (window *ListWindow) OnInput(key gc.Key) {
       items := window.state.List.GetSelection()
       if len(items) > 0 {
         torrents := transform.ToTorrentList(items)
-        _, isActive := idsAndNextState(torrents)
+        _, isActive := transform.IdsAndNextState(torrents)
         op := ListActiveOperation{
             isActive,
             ListOperation{
@@ -177,7 +177,9 @@ func (window *ListWindow) OnInput(key gc.Key) {
       }
     }
 
-    window.manager.Draw <- true
+    go func() {
+      window.manager.Draw <- true
+    }()
   }()
 }
 
@@ -302,7 +304,7 @@ func drawList(window *gc.Window, state ListWindowState) {
     if len(op.Items) == 1 {
       idsString = fmt.Sprintf("torrent %d", op.Items[0].Id())
     } else {
-      idsString = fmt.Sprintf("torrents %s", strings.Join(mapToString(op.Items), ", "))
+      idsString = fmt.Sprintf("torrents %s", strings.Join(transform.MapToString(op.Items), ", "))
     }
 
     switch op.Operation {
@@ -381,11 +383,11 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
   switch operation.(type) {
   case ListActiveOperation:
     lop := operation.(ListActiveOperation)
-    ids := mapToIds(lop.Items)
+    ids := transform.MapToIds(lop.Items)
     e = client.UpdateActive(ids, lop.Active)
   case ListOperation:
     lop := operation.(ListOperation)
-    ids := mapToIds(lop.Items)
+    ids := transform.MapToIds(lop.Items)
     switch lop.Operation {
     case DELETE:
       e = client.Delete(ids, false)
@@ -423,10 +425,6 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
 
   cheatsheet := NewCheatsheet(parent, items, manager)
   manager.AddWindow(cheatsheet)
-}
-
-func showPrompt(parent *gc.Window, manager *WindowManager) {
-
 }
 
 /* Utils */
@@ -468,31 +466,4 @@ func control(char gc.Key) Input {
   }
 
   return UNKNOWN
-}
-
-func mapToString(slice []transmission.TorrentListItem) []string {
-  output := make([]string, len(slice))
-  for index, element := range slice {
-    output[index] = fmt.Sprintf("%d", element.Id())
-  }
-  return output
-}
-
-func mapToIds(slice []transmission.TorrentListItem) []int {
-  output := make([]int, len(slice))
-  for index, item := range slice {
-    output[index] = item.Id()
-  }
-  return output
-}
-
-func idsAndNextState(torrents []transmission.TorrentListItem) ([]int, bool) {
-  isActive := false
-  ids := make([]int, len(torrents))
-  for i, torrent := range torrents {
-    isActive = isActive || torrent.Status != transmission.TR_STATUS_STOPPED
-    ids[i] = torrent.Id()
-  }
-
-  return ids, !isActive
 }

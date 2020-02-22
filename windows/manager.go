@@ -41,7 +41,7 @@ func NewWindowManager(root *gc.Window) *WindowManager {
     make(chan bool),
     make(chan bool)}
 
-  // Signal channel. 
+  // Signal channel.
   signal.Notify(manager.signals, syscall.SIGWINCH)
   go func() {
     for {

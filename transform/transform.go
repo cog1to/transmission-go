@@ -3,6 +3,7 @@ package transform
 import (
   "../transmission"
   "../list"
+  "fmt"
 )
 
 func GeneralizeTorrents(items []transmission.TorrentListItem) []list.Identifiable {
@@ -64,4 +65,31 @@ func IdsAndNextWanted(files []transmission.TorrentFile) ([]int, bool) {
   }
 
   return ids, !wanted
+}
+
+func MapToString(slice []transmission.TorrentListItem) []string {
+  output := make([]string, len(slice))
+  for index, element := range slice {
+    output[index] = fmt.Sprintf("%d", element.Id())
+  }
+  return output
+}
+
+func MapToIds(slice []transmission.TorrentListItem) []int {
+  output := make([]int, len(slice))
+  for index, item := range slice {
+    output[index] = item.Id()
+  }
+  return output
+}
+
+func IdsAndNextState(torrents []transmission.TorrentListItem) ([]int, bool) {
+  isActive := false
+  ids := make([]int, len(torrents))
+  for i, torrent := range torrents {
+    isActive = isActive || torrent.Status != transmission.TR_STATUS_STOPPED
+    ids[i] = torrent.Id()
+  }
+
+  return ids, !isActive
 }

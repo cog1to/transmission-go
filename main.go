@@ -9,7 +9,6 @@ import (
   "./windows"
   gc "./goncurses"
   "flag"
-  "./logger"
 )
 
 func main() {
@@ -30,9 +29,6 @@ func main() {
     log.Fatal(gcerr)
   }
   defer gc.End()
-
-  logger.Open("transmission.log")
-  defer logger.Deinit()
 
   // Colors.
   gc.StartColor()
