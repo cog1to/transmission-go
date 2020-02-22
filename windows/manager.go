@@ -24,6 +24,7 @@ type WindowManager struct {
   windows []Window
   inputReaders []InputReader
   signals chan os.Signal
+  resize bool
   input chan gc.Key
   Exit chan bool
   Draw chan bool
@@ -35,12 +36,22 @@ func NewWindowManager(root *gc.Window) *WindowManager {
     make([]Window, 0),
     make([]InputReader, 0),
     make(chan os.Signal, 1),
+    false,
     make(chan gc.Key),
     make(chan bool),
     make(chan bool)}
 
   // Signal channel. 
   signal.Notify(manager.signals, syscall.SIGWINCH)
+  go func() {
+    for {
+      sig := <-manager.signals
+      if sig == syscall.SIGWINCH {
+        manager.resize = true
+        manager.Draw <- true
+      }
+    }
+  }()
 
   // Input channel.
   go func() {
@@ -147,14 +158,14 @@ func (manager *WindowManager) Start() {
   for {
     select {
     case <-manager.Draw:
-      manager.DrawTop()
-    case sig := <-manager.signals:
-      if sig == syscall.SIGWINCH {
+      if manager.resize {
+        manager.resize = false
         gc.End()
         manager.root.Refresh()
         manager.Resize()
         manager.Redraw()
       }
+      manager.DrawTop()
     case input := <-manager.input:
       if input != gc.KEY_RESIZE && len(manager.inputReaders) > 0 {
         lastReader := manager.inputReaders[len(manager.inputReaders) - 1]
