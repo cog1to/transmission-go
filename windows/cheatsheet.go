@@ -1,10 +1,8 @@
 package windows
 
 import (
-  "fmt"
   gc "../goncurses"
   "../utils"
-  "../logger"
 )
 
 /* Data */
@@ -34,47 +32,11 @@ func (window *Cheatsheet) Draw() {
 }
 
 func (window *Cheatsheet) Resize() {
-  const (
-    OUTER_PADDING_X, OUTER_PADDING_Y = 3, 5
-    INNER_PADDING = 4
-    MARGINS_VERTICAL = 2
-    DELIMITER_WIDTH = len(" :: ")
-  )
-
-  // Measuring window's width and height
-  maxLeft := func() (int) {
-    var left int
-    for _, item := range window.items {
-      left = utils.MinInt(10, utils.MaxInt(left, len([]rune(item.Input))))
-    }
-    return left
-  }()
-
-  maxWidth := func() int {
-    width := 0
-    for _, item := range window.items {
-      width = utils.MaxInt(len([]rune(item.Description)), width)
-    }
-    return width
-  }()
-
-  rows, cols := window.parent.MaxYX()
-  maxWindowWidth := cols - OUTER_PADDING_X
-  windowWidth := utils.MinInt(maxWindowWidth, maxWidth + INNER_PADDING + DELIMITER_WIDTH + maxLeft)
-
-  maxHeight := func() int {
-    y, maxRight := 0, windowWidth - INNER_PADDING + DELIMITER_WIDTH - maxLeft
-    for _, item := range window.items {
-      y += utils.MaxInt(1, len([]rune(item.Description)) / maxRight)
-    }
-    return y
-  }()
-  windowHeight := utils.MinInt(rows - OUTER_PADDING_Y, maxHeight + MARGINS_VERTICAL)
+  height, width, y, x := measureCheatsheet(window.parent, window.items)
 
   // Spawn new sub-window.
-  logger.Log(fmt.Sprintf("New pos: %d, %d. New size: %d, %d", (rows - windowHeight) / 2, (cols - windowWidth) / 2, windowHeight, windowWidth))
-  window.window.MoveWindow((rows - windowHeight) / 2, (cols - windowWidth) / 2)
-  window.window.Resize(windowHeight, windowWidth)
+  window.window.MoveWindow(y, x)
+  window.window.Resize(height, width)
 }
 
 func (window *Cheatsheet) OnInput(key gc.Key) {
@@ -82,45 +44,8 @@ func (window *Cheatsheet) OnInput(key gc.Key) {
 }
 
 func NewCheatsheet(parent *gc.Window, items []HelpItem, manager *WindowManager) *Cheatsheet {
-  const (
-    OUTER_PADDING_X, OUTER_PADDING_Y = 3, 5
-    INNER_PADDING = 4
-    MARGINS_VERTICAL = 2
-    DELIMITER_WIDTH = len(" :: ")
-  )
-
-  // Measuring window's width and height
-  maxLeft := func() (int) {
-    var left int
-    for _, item := range items {
-      left = utils.MinInt(10, utils.MaxInt(left, len([]rune(item.Input))))
-    }
-    return left
-  }()
-
-  maxWidth := func() int {
-    width := 0
-    for _, item := range items {
-      width = utils.MaxInt(len([]rune(item.Description)), width)
-    }
-    return width
-  }()
-
-  rows, cols := parent.MaxYX()
-  maxWindowWidth := cols - OUTER_PADDING_X
-  windowWidth := utils.MinInt(maxWindowWidth, maxWidth + INNER_PADDING + DELIMITER_WIDTH + maxLeft)
-
-  maxHeight := func() int {
-    y, maxRight := 0, windowWidth - INNER_PADDING + DELIMITER_WIDTH - maxLeft
-    for _, item := range items {
-      y += utils.MaxInt(1, len([]rune(item.Description)) / maxRight)
-    }
-    return y
-  }()
-  windowHeight := utils.MinInt(rows - OUTER_PADDING_Y, maxHeight + MARGINS_VERTICAL)
-
-  // Spawn new sub-window.
-  window := parent.Derived(windowHeight, windowWidth, (rows - windowHeight) / 2, (cols - windowWidth) / 2)
+  height, width, y, x := measureCheatsheet(parent, items)
+  window := parent.Derived(height, width, y, x)
 
   return &Cheatsheet{
     parent,
@@ -176,4 +101,47 @@ func drawCheatsheet(window *gc.Window, items []HelpItem) {
   }
 
   window.Refresh()
+}
+
+/* Measuring */
+
+func measureCheatsheet(parent *gc.Window, items []HelpItem) (int, int, int, int) {
+  const (
+    OUTER_PADDING_X, OUTER_PADDING_Y = 3, 5
+    INNER_PADDING = 4
+    MARGINS_VERTICAL = 2
+    DELIMITER_WIDTH = len(" :: ")
+  )
+
+  // Measuring window's width and height
+  maxLeft := func() (int) {
+    var left int
+    for _, item := range items {
+      left = utils.MinInt(10, utils.MaxInt(left, len([]rune(item.Input))))
+    }
+    return left
+  }()
+
+  maxWidth := func() int {
+    width := 0
+    for _, item := range items {
+      width = utils.MaxInt(len([]rune(item.Description)), width)
+    }
+    return width
+  }()
+
+  rows, cols := parent.MaxYX()
+  maxWindowWidth := cols - OUTER_PADDING_X
+  windowWidth := utils.MinInt(maxWindowWidth, maxWidth + INNER_PADDING + DELIMITER_WIDTH + maxLeft)
+
+  maxHeight := func() int {
+    y, maxRight := 0, windowWidth - INNER_PADDING + DELIMITER_WIDTH - maxLeft
+    for _, item := range items {
+      y += utils.MaxInt(1, len([]rune(item.Description)) / maxRight)
+    }
+    return y
+  }()
+  windowHeight := utils.MinInt(rows - OUTER_PADDING_Y, maxHeight + MARGINS_VERTICAL)
+
+  return windowHeight, windowWidth, (rows - windowHeight) / 2, (cols - windowWidth) / 2
 }

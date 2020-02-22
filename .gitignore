@@ -1,3 +1,11 @@
 # Output
 transmission-go
 
+# Logs
+*.log
+
+# VIM
+*.swp
+
+# MacOS junk
+.DS_Store

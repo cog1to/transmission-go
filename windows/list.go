@@ -143,6 +143,24 @@ func (window *ListWindow) OnInput(key gc.Key) {
       }
     case HELP:
       showListCheatsheet(window.window, window.manager)
+    case UP_LIMIT:
+      IntPrompt(
+        window.window,
+        window.manager,
+        "Global upload limit (KB):",
+        window.state.Settings.UploadSpeedLimit,
+        window.state.Settings.UploadSpeedLimitEnabled,
+        func(limit int) { go setGlobalUploadLimit(window.client, limit, window.state) },
+        func(err error) { window.state.Error = err })
+    case DOWN_LIMIT:
+      IntPrompt(
+        window.window,
+        window.manager,
+        "Global download limit (KB):",
+        window.state.Settings.DownloadSpeedLimit,
+        window.state.Settings.DownloadSpeedLimitEnabled,
+        func(limit int) { go setGlobalDownloadLimit(window.client, limit, window.state) },
+        func(err error) { window.state.Error = err })
     }
 
     window.manager.Draw <- true
@@ -308,6 +326,26 @@ func updateSession(client *transmission.Client, state *ListWindowState) {
   state.Error = err
 }
 
+func setGlobalDownloadLimit(client *transmission.Client, limit int, state *ListWindowState) {
+  e := client.SetGlobalDownloadLimit(limit)
+
+  if e != nil {
+    state.Error = e
+  } else {
+    updateSession(client, state)
+  }
+}
+
+func setGlobalUploadLimit(client *transmission.Client, limit int, state *ListWindowState) {
+  e := client.SetGlobalUploadLimit(limit)
+
+  if e != nil {
+    state.Error = e
+  } else {
+    updateSession(client, state)
+  }
+}
+
 func handleOperation(client *transmission.Client, operation interface{}, state *ListWindowState) {
   var e error
 
@@ -356,6 +394,10 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
 
   cheatsheet := NewCheatsheet(parent, items, manager)
   manager.AddWindow(cheatsheet)
+}
+
+func showPrompt(parent *gc.Window, manager *WindowManager) {
+
 }
 
 /* Utils */
