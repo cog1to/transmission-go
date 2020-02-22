@@ -92,7 +92,7 @@ func NewPrompt(
   completion func(string),
   cancel func()) *Prompt {
   height, width, y, x := MeasurePrompt(parent, title, limit)
-  prompt := parent.Derived(height, width, y, x)
+  prompt, _ := gc.NewWindow(height, width, y, x)
 
   initialRunes := []rune(initial)
   length := len(initialRunes)

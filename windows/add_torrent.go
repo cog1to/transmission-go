@@ -209,7 +209,7 @@ func (window *AddTorrentWindow) UpdateFocus(source *InputField, direction int) {
 
 func NewAddTorrentWindow(client *transmission.Client, parent *gc.Window, manager *WindowManager, onError func(error)) *AddTorrentWindow {
   height, width, y, x := MeasureAddTorrentWindow(parent)
-  window := parent.Derived(height, width, y, x)
+  window, _ := gc.NewWindow(height, width, y, x)
   window.Keypad(true)
 
   // Window state
