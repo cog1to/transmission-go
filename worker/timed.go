@@ -16,10 +16,10 @@ type RepeatingWorker struct {
 }
 
 func Repeating(interval int, job func()) Worker {
-  return RepeatingWorker{ interval, job, make(chan bool) }
+  return &RepeatingWorker{ interval, job, make(chan bool) }
 }
 
-func (worker RepeatingWorker) Start() {
+func (worker *RepeatingWorker) Start() {
   go func() {
     // Initial run.
     worker.job()
@@ -35,6 +35,6 @@ func (worker RepeatingWorker) Start() {
   }()
 }
 
-func (worker RepeatingWorker) Stop() {
+func (worker *RepeatingWorker) Stop() {
   worker.suspend <- true
 }
