@@ -61,7 +61,10 @@ func (manager *WindowManager) AddWindow(win Window) {
   manager.windows = append(manager.windows, win)
   manager.inputReaders = append(manager.inputReaders, win)
   win.SetActive(true)
-  manager.Redraw()
+
+  go func() {
+    manager.Draw <- true
+  }()
 }
 
 func (manager *WindowManager) RemoveWindow(win Window) {
@@ -86,7 +89,10 @@ func (manager *WindowManager) RemoveWindow(win Window) {
   if len(manager.windows) > 0 {
     manager.windows[len(manager.windows) - 1].SetActive(true)
   }
-  manager.Redraw()
+
+  go func() {
+    manager.Draw <- true
+  }()
 }
 
 func (manager *WindowManager) AddInputReader(reader InputReader) {

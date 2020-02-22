@@ -271,6 +271,7 @@ func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) stri
 }
 
 func drawList(window *gc.Window, state ListWindowState) {
+  window.Erase()
   row, col := window.MaxYX()
 
   maxTitleLength := utils.MaxInt(0, col - 71)
