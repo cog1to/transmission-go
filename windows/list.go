@@ -161,6 +161,11 @@ func (window *ListWindow) OnInput(key gc.Key) {
         window.state.Settings.DownloadSpeedLimitEnabled,
         func(limit int) { go setGlobalDownloadLimit(window.client, limit, window.state) },
         func(err error) { window.state.Error = err })
+    case ADD:
+      // Open new torrent dialog.
+      window.state.PendingOperation = nil
+      dialog := NewAddTorrentWindow(window.client, window.window, window.manager, func(err error) { drawError(window.window, err) })
+      window.manager.AddWindow(dialog)
     }
 
     window.manager.Draw <- true
@@ -299,6 +304,19 @@ func drawList(window *gc.Window, state ListWindowState) {
     }
   } else if state.Error != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", state.Error)
+  }
+
+  window.Refresh()
+}
+
+func drawError(window *gc.Window, err error) {
+  row, col := window.MaxYX()
+
+  // Status.
+  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
+  window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
+  if err != nil {
+    window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", err)
   }
 
   window.Refresh()
