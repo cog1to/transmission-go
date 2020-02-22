@@ -34,7 +34,7 @@ func NewWindowManager(root *gc.Window) *WindowManager {
     root,
     make([]Window, 0),
     make([]InputReader, 0),
-    make(chan os.Signal),
+    make(chan os.Signal, 1),
     make(chan gc.Key),
     make(chan bool),
     make(chan bool)}
@@ -116,11 +116,23 @@ func (manager *WindowManager) Redraw() {
   }
 }
 
+func (manager *WindowManager) DrawTop() {
+  if top := manager.Top(); top != nil {
+    top.Draw()
+  }
+}
+
 func (manager *WindowManager) Resize() {
   for _, window := range manager.windows {
     window.Resize()
-    window.Draw()
   }
+}
+
+func (manager *WindowManager) Top() Window {
+  if len(manager.windows) > 0 {
+    return manager.windows[len(manager.windows) - 1]
+  }
+  return nil
 }
 
 func (manager *WindowManager) Start() {
@@ -129,7 +141,7 @@ func (manager *WindowManager) Start() {
   for {
     select {
     case <-manager.Draw:
-      manager.Redraw()
+      manager.DrawTop()
     case sig := <-manager.signals:
       if sig == syscall.SIGWINCH {
         gc.End()
@@ -138,9 +150,9 @@ func (manager *WindowManager) Start() {
         manager.Redraw()
       }
     case input := <-manager.input:
-      if len(manager.inputReaders) > 0 {
-       lastReader := manager.inputReaders[len(manager.inputReaders) - 1]
-       lastReader.OnInput(input)
+      if input != gc.KEY_RESIZE && len(manager.inputReaders) > 0 {
+        lastReader := manager.inputReaders[len(manager.inputReaders) - 1]
+        lastReader.OnInput(input)
       }
     case <-manager.Exit:
       return

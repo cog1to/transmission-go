@@ -66,6 +66,7 @@ type ListWindow struct {
   state *ListWindowState
   workers worker.WorkerList
   manager *WindowManager
+  obfuscated bool
 }
 
 func (window *ListWindow) IsFullScreen() bool {
@@ -85,7 +86,7 @@ func (window *ListWindow) Draw() {
 }
 
 func (window *ListWindow) Resize() {
-  // We're fullscreen, so we don't need to resize.
+  window.window.Refresh()
 }
 
 func (window *ListWindow) OnInput(key gc.Key) {
@@ -166,6 +167,14 @@ func (window *ListWindow) OnInput(key gc.Key) {
       window.state.PendingOperation = nil
       dialog := NewAddTorrentWindow(window.client, window.window, window.manager, func(err error) { drawError(window.window, err) })
       window.manager.AddWindow(dialog)
+    case DETAILS:
+      // Go to torrent details.
+      if window.state.List.Cursor >= 0 {
+        item := window.state.List.Items[window.state.List.Cursor]
+        torrent := item.(transmission.TorrentListItem)
+        details := NewTorrentDetailsWindow(window.client, torrent.Id(), window.obfuscated, window.window, window.manager)
+        window.manager.AddWindow(details)
+      }
     }
 
     window.manager.Draw <- true
@@ -215,7 +224,8 @@ func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bo
     client,
     state,
     workers,
-    manager}
+    manager,
+    obfuscated}
 }
 
 /* Drawing */
