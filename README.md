@@ -72,8 +72,18 @@ Obviously requires a working Go environment and headers/libs for ncurses. To pro
 
 Building should be pretty straightforward:
 ```
+make
+```
+Or
+```
 go build
 ```
+
+## Installation
+```
+make install
+```
+Default install path of `usr/local/bin` can be changed by passing `INSTALL_DIR=/your/dest/path` to the `make` command.
 
 ## Contributions
 
