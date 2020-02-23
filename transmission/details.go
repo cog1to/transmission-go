@@ -1,11 +1,15 @@
 package transmission
 
-func DetailsRequest(conn Connection, token string, id int, fields []string) TRequest {
-  return TRequest{
-    conn,
-    "torrent-get",
-    token,
-    map[string]interface{} { "ids": []int{ id }, "fields": fields }}
+import "net/http"
+
+func DetailsRequest(id int, fields []string) RequestBuilder {
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "torrent-get",
+      token,
+      map[string]interface{} { "ids": []int{ id }, "fields": fields }}.ToRequest()
+  }
 }
 
 type TorrentFileInternal struct {

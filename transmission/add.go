@@ -1,5 +1,17 @@
 package transmission
 
+import "net/http"
+
+func AddRequest(filename string, downloadDir string, paused bool) RequestBuilder {
+  return func(conn Connection, token string)(*http.Request, error) {
+    return TRequest{
+      conn,
+      "torrent-add",
+      token,
+      map[string]interface{} { "filename": filename, "download-dir": downloadDir, "paused": paused }}.ToRequest()
+  }
+}
+
 type TorrentAddedInfo struct {
   HashString string `json:"hashString"`
   Id int            `json:"id"`
@@ -14,14 +26,6 @@ type TorrentAddResponse struct {
   ResultValue string                         `json:"result"`
   TagValue string                            `json:"tag"`
   ArgumentsValue TorrentAddResponseArguments `json:"arguments"`
-}
-
-func AddRequest(conn Connection, token string, filename string, downloadDir string, paused bool) TRequest {
-  return TRequest{
-    conn,
-    "torrent-add",
-    token,
-    map[string]interface{} { "filename": filename, "download-dir": downloadDir, "paused": paused }}
 }
 
 func (response TorrentAddResponse) Result() string {

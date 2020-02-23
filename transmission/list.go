@@ -1,6 +1,8 @@
 package transmission
 
-func ListRequest(conn Connection, token string) TRequest {
+import "net/http"
+
+func ListRequest(conn Connection, token string) (*http.Request, error) {
   return TRequest{
     conn,
     "torrent-get",
@@ -17,7 +19,7 @@ func ListRequest(conn Connection, token string) TRequest {
         "rateUpload",
         "sizeWhenDone",
         "status",
-        "uploadRatio"}}}
+        "uploadRatio"}}}.ToRequest()
 }
 
 type TorrentListItem struct {

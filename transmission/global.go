@@ -1,50 +1,55 @@
 package transmission
 
-func SetGlobalUploadLimitRequest(conn Connection, token string, value int) TRequest {
+import "net/http"
+
+func SetGlobalUploadLimitRequest(value int) RequestBuilder {
   var limited bool
   if value > 0 {
     limited = true
   }
 
-  return TRequest{
-    conn,
-    "session-set",
-    token,
-    map[string]interface{}{
-      "speed-limit-up": value,
-      "speed-limit-up-enabled": limited}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "session-set",
+      token,
+      map[string]interface{}{
+        "speed-limit-up": value,
+        "speed-limit-up-enabled": limited}}.ToRequest()
+  }
 }
 
-func SetGlobalDownloadLimitRequest(conn Connection, token string, value int) TRequest {
+func SetGlobalDownloadLimitRequest(value int) RequestBuilder {
   var limited bool
   if value > 0 {
     limited = true
   }
 
-  return TRequest{
-    conn,
-    "session-set",
-    token,
-    map[string]interface{}{
-      "speed-limit-down": value,
-      "speed-limit-down-enabled": limited}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "session-set",
+      token,
+      map[string]interface{}{
+        "speed-limit-down": value,
+        "speed-limit-down-enabled": limited}}.ToRequest()
+  }
 }
 
-func StartTorrentRequest(conn Connection, token string, ids []int) TRequest {
-  return TRequest{
-    conn,
-    "torrent-start",
-    token,
-    map[string]interface{}{
-      "ids": ids}}
-}
+func UpdateActiveRequest(active bool, ids []int) RequestBuilder {
+  var command string
+  if active {
+    command = "torrent-start"
+  } else {
+    command = "torrent-stop"
+  }
 
-func StopTorrentRequest(conn Connection, token string, ids []int) TRequest {
-  return TRequest{
-    conn,
-    "torrent-stop",
-    token,
-    map[string]interface{}{
-      "ids": ids}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      command,
+      token,
+      map[string]interface{}{
+        "ids": ids}}.ToRequest()
+  }
 }
-

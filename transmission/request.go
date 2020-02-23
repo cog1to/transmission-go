@@ -53,3 +53,5 @@ func (request TRequest) ToRequest() (*http.Request, error) {
 
   return req, nil
 }
+
+type RequestBuilder func(conn Connection, token string)(*http.Request, error)

@@ -1,6 +1,8 @@
 package transmission
 
-func SetPriorityRequest(conn Connection, token string, id int, files []int, priority int) TRequest {
+import "net/http"
+
+func SetPriorityRequest(id int, files []int, priority int) RequestBuilder {
   var priorityValue string
   switch priority {
   case TR_PRIORITY_NORMAL:
@@ -11,16 +13,18 @@ func SetPriorityRequest(conn Connection, token string, id int, files []int, prio
     priorityValue = "priority-low"
   }
 
-  return TRequest{
-    conn,
-    "torrent-set",
-    token,
-    map[string]interface{}{
-      "ids": []int{ id },
-      priorityValue: files}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "torrent-set",
+      token,
+      map[string]interface{}{
+        "ids": []int{ id },
+        priorityValue: files}}.ToRequest()
+  }
 }
 
-func SetWantedRequest(conn Connection, token string, id int, files []int, wanted bool) TRequest {
+func SetWantedRequest(id int, files []int, wanted bool) RequestBuilder {
   var wantedValue string
   switch wanted {
   case true:
@@ -29,12 +33,14 @@ func SetWantedRequest(conn Connection, token string, id int, files []int, wanted
     wantedValue = "files-unwanted"
   }
 
-  return TRequest{
-    conn,
-    "torrent-set",
-    token,
-    map[string]interface{}{
-      "ids": []int{ id },
-      wantedValue: files}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "torrent-set",
+      token,
+      map[string]interface{}{
+        "ids": []int{ id },
+        wantedValue: files}}.ToRequest()
+  }
 }
 

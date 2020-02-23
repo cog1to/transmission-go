@@ -1,6 +1,8 @@
 package transmission
 
-func GetSessionSettingsRequest(conn Connection, token string) TRequest {
+import "net/http"
+
+func GetSessionSettingsRequest(conn Connection, token string) (*http.Request, error) {
   return TRequest{
     conn,
     "session-get",
@@ -10,7 +12,7 @@ func GetSessionSettingsRequest(conn Connection, token string) TRequest {
         "speed-limit-up",
         "speed-limit-up-enabled",
         "speed-limit-down",
-        "speed-limit-down-enabled"}}}
+        "speed-limit-down-enabled"}}}.ToRequest()
 }
 
 type SessionSettings struct {

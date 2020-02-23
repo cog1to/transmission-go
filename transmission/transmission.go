@@ -1,7 +1,6 @@
 package transmission
 
 import (
-  "net/http"
   "fmt"
 )
 
@@ -42,11 +41,7 @@ func (torrent TorrentListItem) Id() int {
 
 func (client *Client) List() (*[]TorrentListItem, error) {
   var response TorrentListResponse
-  err := client.performJson(
-    func(conn Connection, token string)(*http.Request, error) {
-      return ListRequest(conn, token).ToRequest()
-    },
-    &response)
+  err := client.performJson(ListRequest, &response)
 
   if err != nil {
     return nil, err
@@ -57,20 +52,14 @@ func (client *Client) List() (*[]TorrentListItem, error) {
 }
 
 func (client *Client) Delete(ids []int, withData bool) error {
-  _, err := client.perform(func(conn Connection, token string)(*http.Request, error) {
-    return DeleteRequest(conn, token, ids, withData).ToRequest()
-  })
+  _, err := client.perform(DeleteRequest(ids, withData))
 
   return err
 }
 
 func (client *Client) AddTorrent(url string, path string) (error) {
   var response TorrentAddResponse
-  err := client.performJson(
-    func(conn Connection, token string)(*http.Request, error) {
-      return AddRequest(conn, token, url, path, false).ToRequest()
-    },
-    &response)
+  err := client.performJson(AddRequest(url, path, false), &response)
 
   if err != nil {
     return err
@@ -105,11 +94,7 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
     "fileStats"}
 
   var response TorrentDetailsResponse
-  err := client.performJson(
-    func(conn Connection, token string)(*http.Request, error) {
-      return DetailsRequest(conn, token, id, fields).ToRequest()
-    },
-    &response)
+  err := client.performJson(DetailsRequest(id, fields), &response)
 
   if err != nil {
     return nil, err
@@ -156,58 +141,36 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
 }
 
 func (client *Client) SetPriority(id int, files []int, priority int) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    return SetPriorityRequest(conn, token, id, files, priority).ToRequest()
-  })
+  return client.performWithoutData(SetPriorityRequest(id, files, priority))
 }
 
 func (client *Client) SetWanted(id int, files []int, wanted bool) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    return SetWantedRequest(conn, token, id, files, wanted).ToRequest()
-  })
+  return client.performWithoutData(SetWantedRequest(id, files, wanted))
 }
 
 func (client *Client) SetDownloadLimit(id int, limit int) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    return SetDownloadLimitRequest(conn, token, id, limit).ToRequest()
-  })
+  return client.performWithoutData(SetDownloadLimitRequest(id, limit))
 }
 
 func (client *Client) SetUploadLimit(id int, limit int) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    return SetUploadLimitRequest(conn, token, id, limit).ToRequest()
-  })
+  return client.performWithoutData(SetUploadLimitRequest(id, limit))
 }
 
 func (client *Client) UpdateActive(ids []int, active bool) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    if active {
-      return StartTorrentRequest(conn, token, ids).ToRequest()
-    } else {
-      return StopTorrentRequest(conn, token, ids).ToRequest()
-    }
-  })
+  return client.performWithoutData(UpdateActiveRequest(active, ids))
 }
 
 func (client *Client) SetGlobalUploadLimit(limit int) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    return SetGlobalUploadLimitRequest(conn, token, limit).ToRequest()
-  })
+  return client.performWithoutData(SetGlobalUploadLimitRequest(limit))
 }
 
 func (client *Client) SetGlobalDownloadLimit(limit int) error {
-  return client.performWithoutData(func(conn Connection, token string)(*http.Request, error) {
-    return SetGlobalDownloadLimitRequest(conn, token, limit).ToRequest()
-  })
+  return client.performWithoutData(SetGlobalDownloadLimitRequest(limit))
 }
 
 func (client *Client) GetSessionSettings() (*SessionSettings, error) {
   var response SessionSettingsResponse
-  err := client.performJson(
-    func(conn Connection, token string)(*http.Request, error) {
-      return GetSessionSettingsRequest(conn, token).ToRequest()
-    },
-    &response)
+  err := client.performJson(GetSessionSettingsRequest, &response)
 
   if err != nil {
     return nil, err

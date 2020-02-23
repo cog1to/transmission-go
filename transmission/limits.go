@@ -1,33 +1,39 @@
 package transmission
 
-func SetDownloadLimitRequest(conn Connection, token string, id int, value int) TRequest {
+import "net/http"
+
+func SetDownloadLimitRequest(id int, value int) RequestBuilder {
   var limited bool
   if value > 0 {
     limited = true
   }
 
-  return TRequest{
-    conn,
-    "torrent-set",
-    token,
-    map[string]interface{}{
-      "ids": []int{ id },
-      "downloadLimit": value,
-      "downloadLimited": limited}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "torrent-set",
+      token,
+      map[string]interface{}{
+        "ids": []int{ id },
+        "downloadLimit": value,
+        "downloadLimited": limited}}.ToRequest()
+  }
 }
 
-func SetUploadLimitRequest(conn Connection, token string, id int, value int) TRequest {
+func SetUploadLimitRequest(id int, value int) RequestBuilder {
   var limited bool
   if value > 0 {
     limited = true
   }
 
-  return TRequest{
-    conn,
-    "torrent-set",
-    token,
-    map[string]interface{}{
-      "ids": []int{ id },
-      "uploadLimit": value,
-      "uploadLimited": limited}}
+  return func(conn Connection, token string) (*http.Request, error) {
+    return TRequest{
+      conn,
+      "torrent-set",
+      token,
+      map[string]interface{}{
+        "ids": []int{ id },
+        "uploadLimit": value,
+        "uploadLimited": limited}}.ToRequest()
+  }
 }
