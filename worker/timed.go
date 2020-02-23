@@ -4,11 +4,6 @@ import (
   "time"
 )
 
-type Worker interface {
-  Start()
-  Stop()
-}
-
 type RepeatingWorker struct {
   interval int
   job func()
