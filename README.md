@@ -6,7 +6,7 @@ Feature-poor ncurses-based `transmission-daemon` client.
 
 I wanted to learn some Go and do something useful in the process. Having an affinity for terminal and CLI tools, I figured this would be a nice project that I might be using on a daily basis myself.
 
-The client currently has a bare minimum of the daemon/remote client features that I use most often myself. Feel free to request/add more.
+The client currently has a bare minimum of the daemon/remote client features. Feel free to request/add more.
 
 ## Features/screens
 
