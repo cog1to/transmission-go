@@ -44,6 +44,7 @@ All of the actions on torrents and files work either with current selection (if 
 | q     | Exit |
 | jk↑↓  | Move cursor up and down |
 | l→    | Go to torrent details |
+| a     | Add new torrent |
 | Space | Toggle selection |
 | c     | Clear selection |
 | d     | Remove torrent(s) from the list (keep data) |

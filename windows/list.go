@@ -415,6 +415,7 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "q", "Exit" },
     HelpItem{ "jk↑↓", "Move cursor up and down" },
     HelpItem{ "l→", "Go to torrent details" },
+    HelpItem{ "a", "Add new torrent" },
     HelpItem{ "Space", "Toggle selection" },
     HelpItem{ "c", "Clear selection" },
     HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
