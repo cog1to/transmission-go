@@ -188,8 +188,8 @@ func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bo
   window := parent.Sub(rows, cols, 0, 0)
 
   // Item formatter.
-  formatter := func(torrent interface{}, width int) string {
-    return formatTorrentListItem(torrent, width, obfuscated)
+  formatter := func(torrent interface{}, width int, printer func(int, string)) {
+    formatTorrentListItem(torrent, width, obfuscated, printer)
   }
 
   // State.
@@ -232,23 +232,24 @@ func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bo
 
 /* Drawing */
 
-func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) string {
+func formatTorrentListItem(torrent interface{}, width int, obfuscated bool, printer func(int, string)) {
   item := torrent.(transmission.TorrentListItem)
 
-  maxTitleLength := utils.MaxInt(0, width - 71)
+  maxTitleLength := utils.MaxInt(0, width - 72)
   title := []rune(item.Name)
 
   var croppedTitle []rune
-  croppedTitleLength := utils.MinInt(maxTitleLength, len(title))
+  croppedTitleLength := len(title)
   if (obfuscated) {
     croppedTitle = []rune(utils.RandomString(croppedTitleLength))
   } else {
-    croppedTitle = title[0:croppedTitleLength]
+    croppedTitle = title
   }
-  spacesLength := maxTitleLength - croppedTitleLength
+  spacesLength := utils.MaxInt(0, width - croppedTitleLength)
 
   // Format: ID - Title - %Done - ETA - Full size - Status - Ratio - Down speed - Up speed
-  format := fmt.Sprintf("%%5d %%s%%s %%-6s %%-7s %%-9s %%-12s %%-6.3f %%-9s %%-9s")
+  idAndNameFormat := "%5d %s%s"
+  detailsFormat := " %-6s %-7s %-9s %-12s %-6.3f %-9s %-9s"
 
   // %Done. Handle unknown state.
   var done string
@@ -259,10 +260,10 @@ func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) stri
       (float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
   }
 
-  return fmt.Sprintf(format,
-    item.Id(),
-    string(croppedTitle),
-    strings.Repeat(" ", spacesLength),
+  idAndName := fmt.Sprintf(idAndNameFormat, item.Id(), string(croppedTitle), strings.Repeat(" ", spacesLength))
+  printer(0, idAndName)
+
+  details := fmt.Sprintf(detailsFormat,
     done,
     formatTime(item.Eta, (item.SizeWhenDone > 0 && item.LeftUntilDone == 0)),
     formatSize(item.SizeWhenDone),
@@ -270,6 +271,7 @@ func formatTorrentListItem(torrent interface{}, width int, obfuscated bool) stri
     utils.MaxFloat32(0, item.Ratio),
     formatSpeed(item.DownloadSpeed),
     formatSpeed(item.UploadSpeed))
+  printer(maxTitleLength + 7, details)
 }
 
 func drawList(window *gc.Window, state ListWindowState) {

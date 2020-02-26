@@ -2,7 +2,6 @@ package list
 
 import (
   gc "../goncurses"
-  wchar "../cgo.wchar"
   "../utils"
 )
 
@@ -14,7 +13,7 @@ type Identifiable interface {
 
 /* List */
 
-type Formatter = func(item interface{}, width int) string
+type Formatter = func(item interface{}, width int, printer func(int, string))
 
 type List struct {
   // Public
@@ -41,8 +40,6 @@ func (drawer *List) Draw() {
   // Draw items.
   x, y := drawer.MarginLeft, drawer.MarginTop
   for index, item := range drawer.Items[drawer.Offset:] {
-    itemString := drawer.Formatter(item, cols - drawer.MarginLeft - drawer.MarginRight)
-
     var attribute gc.Char
     if index + drawer.Offset == drawer.Cursor {
       attribute = gc.A_REVERSE
@@ -54,10 +51,9 @@ func (drawer *List) Draw() {
     }
 
     utils.WithAttribute(drawer.Window, attribute, func(window *gc.Window) {
-      ws, convertError := wchar.FromGoString(itemString)
-      if (convertError == nil) {
-        window.MovePrintW(y, x, ws)
-      }
+      drawer.Formatter(item, cols - drawer.MarginLeft - drawer.MarginRight, func(offset int, str string) {
+        window.MovePrint(y, x + offset, str)
+      })
     })
 
     y += 1

@@ -3,7 +3,6 @@ package windows
 import (
   "strings"
   "fmt"
-  "../cgo.wchar"
   "../transmission"
   gc "../goncurses"
   "../worker"
@@ -146,8 +145,8 @@ func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated boo
 
   var state *TorrentDetailsState
 
-  formatter := func(file interface{}, width int) string {
-    return formatFile(file, width, obfuscated, state.Torrent)
+  formatter := func(file interface{}, width int, printer func(int, string)) {
+    formatFile(file, width, obfuscated, state.Torrent, printer)
   }
 
   state = &TorrentDetailsState{
@@ -182,7 +181,7 @@ func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated boo
 
 /* Drawing */
 
-func formatFile(file interface{}, width int, obfuscated bool, torrent *transmission.TorrentDetails) string {
+func formatFile(file interface{}, width int, obfuscated bool, torrent *transmission.TorrentDetails, printer func(int, string)) {
   item := file.(transmission.TorrentFile)
 
   var filename string = item.Name
@@ -204,7 +203,7 @@ func formatFile(file interface{}, width int, obfuscated bool, torrent *transmiss
   spacesLength := maxTitleLength - croppedTitleLength
 
   format := "%3d %-6s %-8s %-3s %-9s %s%s"
-  return fmt.Sprintf(format,
+  details := fmt.Sprintf(format,
     item.Number,
     fmt.Sprintf("%3.0f%%", (float32(item.BytesCompleted)/float32(item.Length))*100.0),
     formatPriority(item.Priority),
@@ -212,6 +211,7 @@ func formatFile(file interface{}, width int, obfuscated bool, torrent *transmiss
     formatSize(item.Length),
     string(croppedTitle),
     strings.Repeat(" ", spacesLength))
+  printer(0, details)
 }
 
 func drawDetails(window *gc.Window, state *TorrentDetailsState) {
@@ -223,16 +223,13 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
     item := *state.Torrent
 
     // Name.
-    ws, convertError := wchar.FromGoString(item.Name)
-    if convertError == nil {
-      utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
-        if state.Obfuscated {
-          window.MovePrint(0, 0, utils.RandomString(len([]rune(item.Name))))
-        } else {
-          window.MovePrintW(0, 0, ws)
-        }
-      })
-    }
+    utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
+      if state.Obfuscated {
+        window.MovePrint(0, 0, utils.RandomString(len([]rune(item.Name))))
+      } else {
+        window.MovePrint(0, 0, item.Name)
+      }
+    })
 
     // %Done. Handle unknown torrent size.
     var done string
