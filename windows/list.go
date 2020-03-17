@@ -408,7 +408,7 @@ func setListLocation(client *transmission.Client, ids []int, location string, st
     return
   }
 
-  e := client.SetLocation(ids, location)
+  e := client.SetLocation(ids, utils.ExpandHome(location))
 
   if e != nil {
     state.Error = e
