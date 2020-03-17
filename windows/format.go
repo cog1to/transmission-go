@@ -2,7 +2,9 @@ package windows
 
 import (
   "../transmission"
+  "../transform"
   "fmt"
+  "strings"
 )
 
 func formatSize(size int64) string {
@@ -100,4 +102,14 @@ func formatTime(time int32, done bool) string {
       return fmt.Sprintf("%0.1fd", float32(time) / 86400.0)
     }
   }
+}
+
+func idsString(items []transmission.TorrentListItem) string {
+  var idsString string
+  if len(items) == 1 {
+    idsString = fmt.Sprintf("torrent %d", items[0].Id())
+  } else {
+    idsString = fmt.Sprintf("torrents %s", strings.Join(transform.MapToString(items), ", "))
+  }
+  return idsString
 }

@@ -37,6 +37,7 @@ const (
   DOWN_LIMIT
   UP_LIMIT
   HELP
+  MOVE
   UNKNOWN
 )
 
@@ -144,6 +145,25 @@ func (window *ListWindow) OnInput(key gc.Key) {
       }
     case HELP:
       showListCheatsheet(window.window, window.manager)
+    case MOVE:
+      torrents := transform.ToTorrentList(window.state.List.GetSelection())
+      ids, idsString := transform.MapToIds(torrents), idsString(torrents)
+
+      PathPrompt(
+        window.window,
+        window.manager,
+        fmt.Sprintf("New location for %s:", idsString),
+        "",
+        func(location string) {
+          go func() {
+            setListLocation(window.client, ids, location, window.state)
+            window.manager.Draw <- true
+          }()
+        },
+        func(err error) {
+          window.state.Error = err
+          window.manager.Draw <- true
+        })
     case UP_LIMIT:
       IntPrompt(
         window.window,
@@ -346,7 +366,9 @@ func updateList(client *transmission.Client, state *ListWindowState) {
     state.List.Items = transform.GeneralizeTorrents(*list)
   }
 
-  state.Error = err
+  if err != nil {
+    state.Error = err
+  }
 }
 
 func updateSession(client *transmission.Client, state *ListWindowState) {
@@ -356,7 +378,9 @@ func updateSession(client *transmission.Client, state *ListWindowState) {
     state.Settings = settings
   }
 
-  state.Error = err
+  if err != nil {
+    state.Error = err
+  }
 }
 
 func setGlobalDownloadLimit(client *transmission.Client, limit int, state *ListWindowState) {
@@ -376,6 +400,20 @@ func setGlobalUploadLimit(client *transmission.Client, limit int, state *ListWin
     state.Error = e
   } else {
     updateSession(client, state)
+  }
+}
+
+func setListLocation(client *transmission.Client, ids []int, location string, state *ListWindowState) {
+  if len(ids) == 0 {
+    return
+  }
+
+  e := client.SetLocation(ids, location)
+
+  if e != nil {
+    state.Error = e
+  } else {
+    updateList(client, state)
   }
 }
 
@@ -424,7 +462,8 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "D", "Delete torrent(s) along with the data" },
     HelpItem{ "p", "Start/stop selected torrent(s)" },
     HelpItem{ "L", "Set global download speed limit" },
-    HelpItem{ "U", "Set global upload speed limit" }}
+    HelpItem{ "U", "Set global upload speed limit" },
+    HelpItem{ "m", "Move torrent to a new location" }}
 
   cheatsheet := NewCheatsheet(parent, items, manager)
   manager.AddWindow(cheatsheet)
@@ -466,6 +505,8 @@ func control(char gc.Key) Input {
     return UP_LIMIT
   case gc.KEY_F1:
     return HELP
+  case 'm':
+    return MOVE
   }
 
   return UNKNOWN

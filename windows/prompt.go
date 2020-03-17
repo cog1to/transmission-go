@@ -5,6 +5,7 @@ import (
   "strconv"
   gc "../goncurses"
   "../utils"
+  "../suggestions"
 )
 
 /* Data */
@@ -76,7 +77,16 @@ func (window *Prompt) Resize() {
 
 func MeasurePrompt(parent *gc.Window, title string, limit int) (int, int, int, int) {
   rows, cols := parent.MaxYX()
-  height, width := 5, utils.MaxInt(4 + len(title) + 1 + limit + 1, len(CONTROLS_TEXT) + 4)
+
+  promptDecorationLength := 4 + len(title) + 1
+  maxWidth := utils.MinInt(cols, utils.MaxInt(60, cols * 3 / 4))
+
+  promptLength := utils.MaxInt(0, maxWidth - promptDecorationLength)
+  if (limit > 0) {
+    promptLength  = utils.MinInt(limit + 1, maxWidth - promptDecorationLength)
+  }
+
+  height, width := 5, utils.MaxInt(promptDecorationLength + promptLength, len(CONTROLS_TEXT) + 4)
   y, x := (rows - height) / 2, (cols - width) / 2
 
   return height, width, y, x
@@ -90,7 +100,8 @@ func NewPrompt(
   charset string,
   initial string,
   completion func(string),
-  cancel func()) *Prompt {
+  cancel func(),
+  suggester Suggester) *Prompt {
   height, width, y, x := MeasurePrompt(parent, title, limit)
   prompt, _ := gc.NewWindow(height, width, y, x)
 
@@ -110,13 +121,15 @@ func NewPrompt(
     }()
   }
 
+  var inputLength = width - len(title + " ") - 4
+
   state := &PromptState{
     title,
     limit,
     &InputField{
       2 + len(title + " "),
       1,
-      limit + 1,
+      inputLength,
       true,
       utils.MaxInt(0, length - (limit + 1)),
       length,
@@ -124,12 +137,14 @@ func NewPrompt(
       initialRunes,
       limit,
       charset,
-      nil,
+      suggester,
       nil,
       nil,
       prompt,
       onResult},
     make(chan InputFieldResult)}
+
+  state.Field.UpdateSuggestion()
 
   return &Prompt{
     parent,
@@ -173,7 +188,32 @@ func IntPrompt(parent *gc.Window, manager *WindowManager, title string, value in
     },
     func() {
       manager.RemoveWindow(prompt)
-    })
+    },
+    nil)
   manager.AddWindow(prompt)
 }
 
+func PathPrompt(parent *gc.Window, manager *WindowManager, title string, initial string, onFinish func(string), onError func(error)) {
+  var initialValue = initial
+  if initialValue == "" {
+    initialValue = "~"
+  }
+
+  var prompt *Prompt
+  prompt = NewPrompt(
+    parent,
+    manager,
+    title,
+    0,
+    "",
+    initialValue,
+    func(output string) {
+      manager.RemoveWindow(prompt)
+      onFinish(output)
+    },
+    func() {
+      manager.RemoveWindow(prompt)
+    },
+    suggestions.GetSuggestedPaths)
+  manager.AddWindow(prompt)
+}

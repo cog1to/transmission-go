@@ -11,7 +11,7 @@ import (
   "../transform"
 )
 
-const DETAILS_HEADER_HEIGHT = 4
+const DETAILS_HEADER_HEIGHT = 5
 const DETAILS_FOOTER_HEIGHT = 2
 
 type TorrentDetailsState struct {
@@ -110,6 +110,22 @@ func (window *TorrentDetailsWindow) OnInput(key gc.Key) {
       func(limit int) {
         go func() {
           setUploadLimit(window.client, state.Torrent.Id, limit, window.state)
+          window.manager.Draw <- true
+        }()
+      },
+      func(err error) {
+        state.Error = err
+      })
+  case 'm':
+    // Set new location.
+    PathPrompt(
+      window.window,
+      window.manager,
+      "Set new location:",
+      "",
+      func(location string) {
+        go func() {
+          setLocation(window.client, state.Torrent.Id, location, window.state)
           window.manager.Draw <- true
         }()
       },
@@ -231,6 +247,9 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
       }
     })
 
+    // Location.
+    window.MovePrint(1, 0, fmt.Sprintf("Location: %s", item.DownloadDir))
+
     // %Done. Handle unknown torrent size.
     var done string
     if item.SizeWhenDone == 0 {
@@ -247,7 +266,7 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
     status := formatStatus(item.Status)
 
     dataString := fmt.Sprintf("Size: %s | Done: %s | Ratio: %.3f | Status: %s", size, done, ratio, status)
-    window.MovePrint(1, 0, dataString)
+    window.MovePrint(2, 0, dataString)
 
     // Speed values.
     downSpeed := formatSpeed(item.DownloadSpeed)
@@ -260,10 +279,10 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
       downLimit,
       upSpeed,
       upLimit)
-    window.MovePrintf(2, 0, "%s%s", speedString, strings.Repeat(" ", col - len(speedString)))
+    window.MovePrintf(3, 0, "%s%s", speedString, strings.Repeat(" ", col - len(speedString)))
 
     // Separator.
-    window.HLine(3, 0, gc.ACS_HLINE, col)
+    window.HLine(4, 0, gc.ACS_HLINE, col)
   }
 
   // Legend: # - Done - Priority - Get - Size - Name
@@ -289,7 +308,8 @@ func showDetailsCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "g", "Download/Don't download selected file(s)" },
     HelpItem{ "p", "Change priority of selected file(s)" },
     HelpItem{ "L", "Set torrent's download speed limit" },
-    HelpItem{ "U", "Set torrent's upload speed limit" }}
+    HelpItem{ "U", "Set torrent's upload speed limit" },
+    HelpItem{ "m", "Move torrent to a new location" }}
 
   cheatsheet := NewCheatsheet(parent, items, manager)
   manager.AddWindow(cheatsheet)
@@ -345,3 +365,11 @@ func setUploadLimit(client *transmission.Client, id int, limit int, state *Torre
   }
 }
 
+func setLocation(client *transmission.Client, id int, location string, state *TorrentDetailsState) {
+  e := client.SetLocation([]int{ id }, utils.ExpandHome(location))
+
+  state.Error = e
+  if e == nil {
+    getDetails(client, id, state)
+  }
+}

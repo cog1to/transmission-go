@@ -19,6 +19,7 @@ func ListRequest(conn Connection, token string) (*http.Request, error) {
         "rateUpload",
         "sizeWhenDone",
         "status",
+        "downloadDir",
         "uploadRatio"}}}.ToRequest()
 }
 
@@ -32,6 +33,7 @@ type TorrentListItem struct {
   SizeWhenDone int64    `json:"sizeWhenDone"`
   LeftUntilDone int64   `json:"leftUntilDone"`
   Status int8           `json:"status"`
+  DownloadDir string    `json:"downloadDir"`
 }
 
 type TorrentListResponseArguments struct {

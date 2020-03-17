@@ -91,6 +91,7 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
     "uploadLimit",
     "uploadLimited",
     "files",
+    "downloadDir",
     "fileStats"}
 
   var response TorrentDetailsResponse
@@ -135,6 +136,7 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
     internalTorrent.DownloadLimited,
     internalTorrent.UploadLimit,
     internalTorrent.UploadLimited,
+    internalTorrent.DownloadDir,
     files}
 
   return &torrent, nil
@@ -154,6 +156,10 @@ func (client *Client) SetDownloadLimit(id int, limit int) error {
 
 func (client *Client) SetUploadLimit(id int, limit int) error {
   return client.performWithoutData(SetUploadLimitRequest(id, limit))
+}
+
+func (client *Client) SetLocation(ids []int, location string) error {
+  return client.performWithoutData(SetLocationRequest(ids, location))
 }
 
 func (client *Client) UpdateActive(ids []int, active bool) error {

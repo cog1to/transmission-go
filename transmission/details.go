@@ -47,6 +47,7 @@ type TorrentDetailsInternal struct {
   DownloadLimited bool                  `json:"downloadLimited"`
   UploadLimit int                       `json:"uploadLimit"`
   UploadLimited bool                    `json:"uploadLimited"`
+  DownloadDir string                    `json:"downloadDir"`
   Files *[]TorrentFileInternal          `json:"files"`
   FileStats *[]TorrentFileStatsInternal `json:"fileStats"`
 }
@@ -65,6 +66,7 @@ type TorrentDetails struct {
   DownloadLimited bool
   UploadLimit int
   UploadLimited bool
+  DownloadDir string
   Files []TorrentFile
 }
 
