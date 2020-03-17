@@ -52,6 +52,7 @@ All of the actions on torrents and files work either with current selection (if 
 | p     | Start/stop selected torrent(s) |
 | L     | Set global download speed limit |
 | U     | Set global upload speed limit |
+| m     | Move selected torrent(s) to a new location |
 
 ##### Details screen
 
@@ -66,6 +67,7 @@ All of the actions on torrents and files work either with current selection (if 
 | p     | Change priority of selected file(s) |
 | L     | Set torrent's download speed limit |
 | U     | Set torrent's upload speed limit |
+| m     | Move torrent to a new location |
 
 ## Building
 

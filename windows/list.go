@@ -463,7 +463,7 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "p", "Start/stop selected torrent(s)" },
     HelpItem{ "L", "Set global download speed limit" },
     HelpItem{ "U", "Set global upload speed limit" },
-    HelpItem{ "m", "Move torrent to a new location" }}
+    HelpItem{ "m", "Move selected torrent(s) to a new location" }}
 
   cheatsheet := NewCheatsheet(parent, items, manager)
   manager.AddWindow(cheatsheet)
