@@ -15,3 +15,12 @@ func WithColor(window *gc.Window, color int16, block func(*gc.Window)) {
   block(window)
   window.ColorOff(color)
 }
+
+func IsBackspace(key gc.Key) bool {
+  switch key {
+  case gc.KEY_BACKSPACE, 0x7f, 0x08:
+    return true
+  default:
+    return false
+  }
+}

@@ -8,7 +8,7 @@ INSTALL_DIR ?= /usr/local/bin/
 
 all: build
 build:
-	$(GOBUILD) -o $(BINARY_NAME) -v
+	CGO_LDFLAGS_ALLOW='-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now' $(GOBUILD) -o $(BINARY_NAME) -v
 clean: 
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)

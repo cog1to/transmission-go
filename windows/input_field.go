@@ -134,12 +134,12 @@ func (field *InputField) NewChar(c gc.Key) {
   var runes []rune = field.Value
   var index int
 
-  if len(runes) == 0 && (c == gc.KEY_BACKSPACE || c == gc.KEY_DC) {
+  if len(runes) == 0 && (utils.IsBackspace(c) || c == gc.KEY_DC) {
     return
   }
 
   switch c {
-  case gc.KEY_BACKSPACE, 0x7f:
+  case gc.KEY_BACKSPACE, 0x7f, 0x08:
     if field.Cursor == 0 {
       return
     } else {
