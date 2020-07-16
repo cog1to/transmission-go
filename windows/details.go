@@ -4,7 +4,7 @@ import (
   "strings"
   "fmt"
   "../transmission"
-  gc "../goncurses"
+  tui "../tui"
   "../worker"
   "../utils"
   "../list"
@@ -24,7 +24,7 @@ type TorrentDetailsState struct {
 type TorrentDetailsWindow struct {
   client *transmission.Client
   workers worker.WorkerList
-  window *gc.Window
+  window *tui.Window
   manager *WindowManager
   state *TorrentDetailsState
 }
@@ -41,99 +41,111 @@ func (window *TorrentDetailsWindow) SetActive(active bool) {
   }
 }
 
-func (window *TorrentDetailsWindow) OnInput(key gc.Key) {
+func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
   state := window.state
 
-  switch key {
-  case 'q', 'h', gc.KEY_LEFT:
-    window.manager.RemoveWindow(window)
-    return
-  case ' ':
-    state.List.Select()
-  case 'j', gc.KEY_DOWN:
-    state.List.MoveCursor(1)
-  case 'k', gc.KEY_UP:
-    state.List.MoveCursor(-1)
-  case gc.KEY_PAGEUP:
-    state.List.Page(-1)
-  case gc.KEY_PAGEDOWN:
-    state.List.Page(1)
-  case 'c':
-    state.List.ClearSelection()
-  case 'p':
-    // Change priority.
-    items := state.List.GetSelection()
-    if len(items) > 0 {
-      files := transform.ToFileList(items)
-      ids, priority := transform.IdsAndNextPriority(files)
-      go func() {
-        updatePriority(window.client, state.Torrent.Id, ids, priority, state)
-        window.manager.Draw <- true
-      }()
+  if key.Rune != nil {
+    switch *key.Rune {
+    case 'q', 'h':
+      window.manager.RemoveWindow(window)
+      return
+    case ' ':
+      state.List.Select()
+    case 'j':
+      state.List.MoveCursor(1)
+    case 'k':
+      state.List.MoveCursor(-1)
+    case 'c':
+      state.List.ClearSelection()
+    case 'p':
+      // Change priority.
+      items := state.List.GetSelection()
+      if len(items) > 0 {
+        files := transform.ToFileList(items)
+        ids, priority := transform.IdsAndNextPriority(files)
+        go func() {
+          updatePriority(window.client, state.Torrent.Id, ids, priority, state)
+          window.manager.Draw <- true
+        }()
+      }
+    case 'g':
+      // Change 'wanted' status.
+      items := state.List.GetSelection()
+      if len(items) > 0 {
+        files := transform.ToFileList(items)
+        ids, wanted := transform.IdsAndNextWanted(files)
+        go func() {
+          updateWanted(window.client, state.Torrent.Id, ids, wanted, state)
+          window.manager.Draw <- true
+        }()
+      }
+    case 'L':
+      // Change download limit.
+      IntPrompt(
+        window.window,
+        window.manager,
+        "Set download limit (KB):",
+        state.Torrent.DownloadLimit,
+        state.Torrent.DownloadLimited,
+        func(limit int) {
+          go func() {
+            setDownloadLimit(window.client, state.Torrent.Id, limit, window.state)
+            window.manager.Draw <- true
+          }()
+        },
+        func(err error) {
+          state.Error = err
+        })
+    case 'U':
+      // Change upload limit.
+      IntPrompt(
+        window.window,
+        window.manager,
+        "Set upload limit (KB):",
+        state.Torrent.UploadLimit,
+        state.Torrent.UploadLimited,
+        func(limit int) {
+          go func() {
+            setUploadLimit(window.client, state.Torrent.Id, limit, window.state)
+            window.manager.Draw <- true
+          }()
+        },
+        func(err error) {
+          state.Error = err
+        })
+    case 'm':
+      // Set new location.
+      PathPrompt(
+        window.window,
+        window.manager,
+        "Set new location:",
+        "",
+        func(location string) {
+          go func() {
+            setLocation(window.client, state.Torrent.Id, location, window.state)
+            window.manager.Draw <- true
+          }()
+        },
+        func(err error) {
+          state.Error = err
+        })
     }
-  case 'g':
-    // Change 'wanted' status.
-    items := state.List.GetSelection()
-    if len(items) > 0 {
-      files := transform.ToFileList(items)
-      ids, wanted := transform.IdsAndNextWanted(files)
-      go func() {
-        updateWanted(window.client, state.Torrent.Id, ids, wanted, state)
-        window.manager.Draw <- true
-      }()
+  } else if key.EscapeSeq != nil {
+    switch *key.EscapeSeq {
+    case tui.ESC_LEFT:
+      window.manager.RemoveWindow(window)
+      return
+    case tui.ESC_DOWN:
+      state.List.MoveCursor(1)
+    case tui.ESC_UP:
+      state.List.MoveCursor(-1)
+    case tui.ESC_PGUP:
+      state.List.Page(-1)
+    case tui.ESC_PGDOWN:
+      state.List.Page(1)
+    case tui.ESC_F1:
+      showDetailsCheatsheet(window.window, window.manager)
     }
-  case 'L':
-    // Change download limit.
-    IntPrompt(
-      window.window,
-      window.manager,
-      "Set download limit (KB):",
-      state.Torrent.DownloadLimit,
-      state.Torrent.DownloadLimited,
-      func(limit int) {
-        go func() {
-          setDownloadLimit(window.client, state.Torrent.Id, limit, window.state)
-          window.manager.Draw <- true
-        }()
-      },
-      func(err error) {
-        state.Error = err
-      })
-  case 'U':
-    // Change upload limit.
-    IntPrompt(
-      window.window,
-      window.manager,
-      "Set upload limit (KB):",
-      state.Torrent.UploadLimit,
-      state.Torrent.UploadLimited,
-      func(limit int) {
-        go func() {
-          setUploadLimit(window.client, state.Torrent.Id, limit, window.state)
-          window.manager.Draw <- true
-        }()
-      },
-      func(err error) {
-        state.Error = err
-      })
-  case 'm':
-    // Set new location.
-    PathPrompt(
-      window.window,
-      window.manager,
-      "Set new location:",
-      "",
-      func(location string) {
-        go func() {
-          setLocation(window.client, state.Torrent.Id, location, window.state)
-          window.manager.Draw <- true
-        }()
-      },
-      func(err error) {
-        state.Error = err
-      })
-  case gc.KEY_F1:
-    showDetailsCheatsheet(window.window, window.manager)
   }
 
   go func() {
@@ -149,15 +161,10 @@ func (window *TorrentDetailsWindow) Resize() {
   window.window.Refresh()
 }
 
-func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent *gc.Window, manager *WindowManager) *TorrentDetailsWindow {
+func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent *tui.Window, manager *WindowManager) *TorrentDetailsWindow {
   rows, cols := parent.MaxYX()
 
-  window, err := gc.NewWindow(rows, cols, 0, 0)
-  window.Keypad(true)
-
-  if err != nil {
-    return nil
-  }
+  window := parent.Sub(0, 0, rows, cols)
 
   var state *TorrentDetailsState
 
@@ -230,7 +237,7 @@ func formatFile(file interface{}, width int, obfuscated bool, torrent *transmiss
   printer(0, details)
 }
 
-func drawDetails(window *gc.Window, state *TorrentDetailsState) {
+func drawDetails(window *tui.Window, state *TorrentDetailsState) {
   window.Erase()
   _, col := window.MaxYX()
 
@@ -239,7 +246,7 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
     item := *state.Torrent
 
     // Name.
-    utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
+    tui.WithAttribute(tui.ATTR_BOLD, func() {
       if state.Obfuscated {
         window.MovePrint(0, 0, utils.RandomString(len([]rune(item.Name))))
       } else {
@@ -282,24 +289,22 @@ func drawDetails(window *gc.Window, state *TorrentDetailsState) {
     window.MovePrintf(3, 0, "%s%s", speedString, strings.Repeat(" ", col - len(speedString)))
 
     // Separator.
-    window.HLine(4, 0, gc.ACS_HLINE, col)
+    window.HLine(4, 0, col)
   }
 
   // Legend: # - Done - Priority - Get - Size - Name
   legendFormat := "%3s %-6s %-8s %-3s %-9s %s"
   window.MovePrintf(DETAILS_HEADER_HEIGHT, 0, legendFormat, "#", "Done", "Priority", "Get", "Size", "Name")
-  window.HLine(DETAILS_HEADER_HEIGHT + 1, 0, gc.ACS_HLINE, col)
+  window.HLine(DETAILS_HEADER_HEIGHT + 1, 0, col)
 
   // Draw List.
   state.List.Draw()
 
   // Draw Error.
   drawError(window, state.Error)
-
-  window.Refresh()
 }
 
-func showDetailsCheatsheet(parent *gc.Window, manager *WindowManager) {
+func showDetailsCheatsheet(parent *tui.Window, manager *WindowManager) {
   items := []HelpItem{
     HelpItem{ "qh←", "Go back to torrent list" },
     HelpItem{ "jk↑↓", "Move cursor up and down" },

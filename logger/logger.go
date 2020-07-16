@@ -3,6 +3,7 @@ package logger
 import (
   "log"
   "os"
+  "fmt"
 )
 
 var f *os.File
@@ -21,4 +22,8 @@ func Deinit() {
 
 func Log(line string) {
   log.Println(line)
+}
+
+func Logf(line string, args ...interface{}) {
+  log.Println(fmt.Sprintf(line, args...))
 }

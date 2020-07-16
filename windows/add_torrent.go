@@ -2,7 +2,7 @@ package windows
 
 import (
   "fmt"
-  gc "../goncurses"
+  tui "../tui"
   "../utils"
   "../suggestions"
   "../transmission"
@@ -34,8 +34,8 @@ const (
 
 type AddTorrentWindow struct {
   client *transmission.Client
-  parent *gc.Window
-  window *gc.Window
+  parent *tui.Window
+  window *tui.Window
   manager *WindowManager
   state *NewTorrentWindowState
   onError func(error)
@@ -55,22 +55,21 @@ func (window *AddTorrentWindow) SetActive(active bool) {
     } else if window.state.Focus == FOCUS_PATH {
       window.manager.RemoveInputReader(window.state.PathField)
     }
-    gc.Cursor(0)
+    tui.HideCursor()
   }
 }
 
 func (dialog *AddTorrentWindow) Draw() {
   window, state := dialog.window, dialog.state
 
-  window.Erase()
-  window.Box(gc.ACS_VLINE, gc.ACS_HLINE)
+  window.Box()
 
   _, col := window.MaxYX()
   startX, width := 2, col-4
 
   // Header
   window.MovePrint(1, startX, "Add torrent")
-  window.HLine(2, 1, gc.ACS_HLINE, col-2)
+  window.HLine(2, 1, col-2)
 
   // URL
   window.MovePrint(3, startX, "Torrent file or URL:")
@@ -81,36 +80,37 @@ func (dialog *AddTorrentWindow) Draw() {
   state.PathField.Draw()
 
   // Controls delimiter
-  window.HLine(7, 1, gc.ACS_HLINE, col-2)
+  window.HLine(7, 1, col-2)
 
   buttonWidth := width / 2
-  attribute := gc.A_NORMAL
+  var attribute tui.Attribute
+  attribute = tui.ATTR_NORMAL
 
   // Confirm
   if state.Focus == FOCUS_CONFIRM {
-    attribute = gc.A_REVERSE
+    attribute = tui.ATTR_REVERSED
   } else {
-    attribute = gc.A_NORMAL
+    attribute = tui.ATTR_NORMAL
   }
-  utils.WithAttribute(window, attribute, func(window *gc.Window) {
-    window.MovePrintf(8, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
+  tui.WithAttribute(attribute, func() {
+    window.MovePrint(8, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
   })
 
   // Cancel
   if state.Focus == FOCUS_CANCEL {
-    attribute = gc.A_REVERSE
+    attribute = tui.ATTR_REVERSED
   } else {
-    attribute = gc.A_NORMAL
+    attribute = tui.ATTR_NORMAL
   }
-  utils.WithAttribute(window, attribute, func(window *gc.Window) {
-    window.MovePrintf(8, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
+  tui.WithAttribute(attribute, func() {
+    window.MovePrint(8, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
   })
 
   // Enable cursor on input fields.
   if (state.Focus < 2) {
-    gc.Cursor(1)
+    tui.ShowCursor()
   } else {
-    gc.Cursor(0)
+    tui.HideCursor()
   }
 
   // Move cursor if needed.
@@ -120,19 +120,17 @@ func (dialog *AddTorrentWindow) Draw() {
   case FOCUS_PATH:
     state.PathField.SetCursor(window)
   }
-
-  window.Refresh()
 }
 
 func (window *AddTorrentWindow) Resize() {
   height, width, y, x := MeasureAddTorrentWindow(window.parent)
   window.state.UrlField.Length = width - 4
   window.state.PathField.Length = width - 4
-  window.window.MoveWindow(y, x)
+  window.window.Move(y, x)
   window.window.Resize(height, width)
 }
 
-func MeasureAddTorrentWindow(parent *gc.Window) (int, int, int, int) {
+func MeasureAddTorrentWindow(parent *tui.Window) (int, int, int, int) {
   rows, cols := parent.MaxYX()
 
   height, width := 10, utils.MinInt(cols, utils.MaxInt(60, cols * 3 / 4))
@@ -140,23 +138,30 @@ func MeasureAddTorrentWindow(parent *gc.Window) (int, int, int, int) {
   return height, width, y, x
 }
 
-func (window *AddTorrentWindow) OnInput(key gc.Key) {
-  switch key {
-  case gc.KEY_DOWN, gc.KEY_TAB:
-    window.UpdateFocus(nil, 1)
-  case gc.KEY_UP:
-    window.UpdateFocus(nil, -1)
-  case '\n':
-    if window.state.Focus == FOCUS_CANCEL {
-      window.manager.RemoveWindow(window)
-    } else {
-      url, path := utils.ExpandHome(string(window.state.UrlField.Value)), utils.ExpandHome(string(window.state.PathField.Value))
-      err := window.client.AddTorrent(url, path)
-      if err != nil {
-        window.onError(fmt.Errorf("Error: %s", err))
-      } else {
+func (window *AddTorrentWindow) OnInput(key tui.Key) {
+  if key.ControlCode != 0 {
+    switch key.ControlCode {
+    case tui.ASC_TAB:
+      window.UpdateFocus(nil, 1)
+    case tui.ASC_ENTER:
+      if window.state.Focus == FOCUS_CANCEL {
         window.manager.RemoveWindow(window)
+      } else {
+        url, path := utils.ExpandHome(string(window.state.UrlField.Value)), utils.ExpandHome(string(window.state.PathField.Value))
+        err := window.client.AddTorrent(url, path)
+        if err != nil {
+          window.onError(fmt.Errorf("Error: %s", err))
+        } else {
+          window.manager.RemoveWindow(window)
+        }
       }
+    }
+  } else if key.EscapeSeq != nil {
+    switch *key.EscapeSeq {
+    case tui.ESC_UP:
+      window.UpdateFocus(nil, -1)
+    case tui.ESC_DOWN:
+      window.UpdateFocus(nil, 1)
     }
   }
 }
@@ -207,10 +212,9 @@ func (window *AddTorrentWindow) UpdateFocus(source *InputField, direction int) {
   }()
 }
 
-func NewAddTorrentWindow(client *transmission.Client, parent *gc.Window, manager *WindowManager, onError func(error)) *AddTorrentWindow {
+func NewAddTorrentWindow(client *transmission.Client, parent *tui.Window, manager *WindowManager, onError func(error)) *AddTorrentWindow {
   height, width, y, x := MeasureAddTorrentWindow(parent)
-  window, _ := gc.NewWindow(height, width, y, x)
-  window.Keypad(true)
+  window := parent.Sub(y, x, height, width)
 
   // Window state
   state := &NewTorrentWindowState{

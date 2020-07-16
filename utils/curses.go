@@ -1,26 +1,12 @@
 package utils
 
 import (
-  gc "../goncurses"
+  tui "../tui"
 )
 
-func WithAttribute(window *gc.Window, attr gc.Char, block func(*gc.Window)) {
-  window.AttrOn(attr)
+func WithColor(window *tui.Window, front, back tui.Color, block func(*tui.Window)) {
+  tui.ColorOn(front, back)
   block(window)
-  window.AttrOff(attr)
+  tui.ColorOff()
 }
 
-func WithColor(window *gc.Window, color int16, block func(*gc.Window)) {
-  window.ColorOn(color)
-  block(window)
-  window.ColorOff(color)
-}
-
-func IsBackspace(key gc.Key) bool {
-  switch key {
-  case gc.KEY_BACKSPACE, 0x7f, 0x08:
-    return true
-  default:
-    return false
-  }
-}

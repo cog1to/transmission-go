@@ -1,7 +1,7 @@
 package list
 
 import (
-  gc "../goncurses"
+  tui "../tui"
   "../utils"
 )
 
@@ -17,7 +17,7 @@ type Formatter = func(item interface{}, width int, printer func(int, string))
 
 type List struct {
   // Public
-  Window *gc.Window
+  Window *tui.Window
   Formatter Formatter
   MarginTop, MarginBottom, MarginLeft, MarginRight int
 
@@ -30,7 +30,6 @@ type List struct {
 
 func (drawer *List) Draw() {
   if len(drawer.Items) == 0 {
-    drawer.Window.Erase()
     drawer.Window.Refresh()
     return
   }
@@ -40,19 +39,19 @@ func (drawer *List) Draw() {
   // Draw items.
   x, y := drawer.MarginLeft, drawer.MarginTop
   for index, item := range drawer.Items[drawer.Offset:] {
-    var attribute gc.Char
+    attribute := make([]tui.Attribute, 0)
     if index + drawer.Offset == drawer.Cursor {
-      attribute = gc.A_REVERSE
+      attribute = append(attribute, tui.ATTR_REVERSED)
     } else {
-      attribute = gc.A_NORMAL
+      attribute = append(attribute, tui.ATTR_NORMAL)
     }
     if utils.Contains(drawer.Selection, drawer.Items[index + drawer.Offset].Id()) {
-      attribute = attribute | gc.A_BOLD
+      attribute = append(attribute, tui.ATTR_BOLD)
     }
 
-    utils.WithAttribute(drawer.Window, attribute, func(window *gc.Window) {
+    tui.WithAttributes(attribute, func() {
       drawer.Formatter(item, cols - drawer.MarginLeft - drawer.MarginRight, func(offset int, str string) {
-        window.MovePrint(y, x + offset, str)
+        drawer.Window.MovePrint(y, x + offset, str)
       })
     })
 
@@ -64,7 +63,7 @@ func (drawer *List) Draw() {
 
   // Clear remaining lines if needed.
   for index := y; index < rows - drawer.MarginBottom; index++ {
-    drawer.Window.HLine(index, drawer.MarginLeft, ' ', cols - drawer.MarginLeft - drawer.MarginRight)
+    drawer.Window.Line(index, drawer.MarginLeft, ' ', cols - drawer.MarginLeft - drawer.MarginRight)
   }
 }
 
