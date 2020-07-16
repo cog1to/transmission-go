@@ -3,7 +3,7 @@ package windows
 import (
   "fmt"
   "strconv"
-  gc "../goncurses"
+  tui "../tui"
   "../utils"
   "../suggestions"
 )
@@ -22,22 +22,22 @@ type PromptState struct {
 /* Window */
 
 type Prompt struct {
-  parent *gc.Window
-  window *gc.Window
+  parent *tui.Window
+  window *tui.Window
   manager *WindowManager
   state *PromptState
 }
 
-func (window *Prompt) OnInput(key gc.Key) {
+func (window *Prompt) OnInput(key tui.Key) {
   // Prompt doesn't do anything, it should be captured by input field
 }
 
 func (window *Prompt) SetActive(active bool) {
   if active {
-    gc.Cursor(1)
+    tui.ShowCursor()
     window.manager.AddInputReader(window.state.Field)
   } else {
-    gc.Cursor(0)
+    tui.HideCursor()
     window.manager.RemoveInputReader(window.state.Field)
   }
 }
@@ -47,8 +47,7 @@ func (window *Prompt) IsFullScreen() bool {
 }
 
 func (window *Prompt) Draw() {
-  window.window.Erase()
-  window.window.Box(gc.ACS_VLINE, gc.ACS_HLINE)
+  window.window.Box()
 
   _, col := window.window.MaxYX()
   startX, width := 2, col-4
@@ -58,24 +57,22 @@ func (window *Prompt) Draw() {
   window.state.Field.Draw()
 
   // Delimiter.
-  window.window.HLine(2, 1, gc.ACS_HLINE, col-2)
+  window.window.HLine(2, 1, col-2)
 
   // Controls reminder.
   window.window.MovePrint(3, startX + (width - len(CONTROLS_TEXT)) / 2, CONTROLS_TEXT)
 
   // Cursor.
   window.state.Field.SetCursor(window.window)
-
-  window.window.Refresh()
 }
 
 func (window *Prompt) Resize() {
   height, width, y, x := MeasurePrompt(window.parent, window.state.Title, window.state.Limit)
-  window.window.MoveWindow(y, x)
+  window.window.Move(y, x)
   window.window.Resize(height, width)
 }
 
-func MeasurePrompt(parent *gc.Window, title string, limit int) (int, int, int, int) {
+func MeasurePrompt(parent *tui.Window, title string, limit int) (int, int, int, int) {
   rows, cols := parent.MaxYX()
 
   promptDecorationLength := 4 + len(title) + 1
@@ -93,7 +90,7 @@ func MeasurePrompt(parent *gc.Window, title string, limit int) (int, int, int, i
 }
 
 func NewPrompt(
-  parent *gc.Window,
+  parent *tui.Window,
   manager *WindowManager,
   title string,
   limit int,
@@ -103,7 +100,7 @@ func NewPrompt(
   cancel func(),
   suggester Suggester) *Prompt {
   height, width, y, x := MeasurePrompt(parent, title, limit)
-  prompt, _ := gc.NewWindow(height, width, y, x)
+  prompt := parent.Sub(y, x, height, width)
 
   initialRunes := []rune(initial)
   length := len(initialRunes)
@@ -155,7 +152,7 @@ func NewPrompt(
 
 /* Public helpers */
 
-func IntPrompt(parent *gc.Window, manager *WindowManager, title string, value int, flag bool, onFinish func(int), onError func(error)) {
+func IntPrompt(parent *tui.Window, manager *WindowManager, title string, value int, flag bool, onFinish func(int), onError func(error)) {
   var initialValue string
   if flag && value > 0 {
     initialValue = fmt.Sprintf("%d", value)
@@ -193,7 +190,7 @@ func IntPrompt(parent *gc.Window, manager *WindowManager, title string, value in
   manager.AddWindow(prompt)
 }
 
-func PathPrompt(parent *gc.Window, manager *WindowManager, title string, initial string, onFinish func(string), onError func(error)) {
+func PathPrompt(parent *tui.Window, manager *WindowManager, title string, initial string, onFinish func(string), onError func(error)) {
   var initialValue = initial
   if initialValue == "" {
     initialValue = "~"

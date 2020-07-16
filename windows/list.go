@@ -3,7 +3,7 @@ package windows
 import (
   "strings"
   "fmt"
-  gc "../goncurses"
+  tui "../tui"
   "../transmission"
   "../transform"
   "../list"
@@ -64,7 +64,7 @@ type ListWindowState struct {
 
 
 type ListWindow struct {
-  window *gc.Window
+  window *tui.Window
   client *transmission.Client
   state *ListWindowState
   workers worker.WorkerList
@@ -92,7 +92,7 @@ func (window *ListWindow) Resize() {
   window.window.Refresh()
 }
 
-func (window *ListWindow) OnInput(key gc.Key) {
+func (window *ListWindow) OnInput(key tui.Key) {
   go func() {
     command := control(key)
     switch command {
@@ -213,9 +213,9 @@ func (window *ListWindow) OnInput(key gc.Key) {
   }()
 }
 
-func NewListWindow(parent *gc.Window, client *transmission.Client, obfuscated bool, manager *WindowManager) *ListWindow {
+func NewListWindow(parent *tui.Window, client *transmission.Client, obfuscated bool, manager *WindowManager) *ListWindow {
   rows, cols := parent.MaxYX()
-  window := parent.Sub(rows, cols, 0, 0)
+  window := parent.Sub(0, 0, rows, cols)
 
   // Item formatter.
   formatter := func(torrent interface{}, width int, printer func(int, string)) {
@@ -304,7 +304,7 @@ func formatTorrentListItem(torrent interface{}, width int, obfuscated bool, prin
   printer(maxTitleLength + 7, details)
 }
 
-func drawList(window *gc.Window, state ListWindowState) {
+func drawList(window *tui.Window, state ListWindowState) {
   window.Erase()
   row, col := window.MaxYX()
 
@@ -323,14 +323,14 @@ func drawList(window *gc.Window, state ListWindowState) {
 
   legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-7s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
   window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "ETA", "Size", "Status", "Ratio", legendDown, legendUp)
-  window.HLine(1, 0, gc.ACS_HLINE, col)
+  window.HLine(1, 0, col)
 
   // List.
   state.List.Draw()
 
   // Status.
-  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
-  window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
+  window.HLine(row - FOOTER_HEIGHT, 0, col)
+  window.Line(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   if op := state.PendingOperation; op != nil {
     var idsString string
     if len(op.Items) == 1 {
@@ -354,17 +354,15 @@ func drawList(window *gc.Window, state ListWindowState) {
   window.Refresh()
 }
 
-func drawError(window *gc.Window, err error) {
+func drawError(window *tui.Window, err error) {
   row, col := window.MaxYX()
 
   // Status.
-  window.HLine(row - FOOTER_HEIGHT, 0, gc.ACS_HLINE, col)
-  window.HLine(row - FOOTER_HEIGHT + 1, 0, ' ', col)
+  window.HLine(row - FOOTER_HEIGHT, 0, col)
+  window.Line(row - FOOTER_HEIGHT + 1, 0, ' ', col)
   if err != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", err)
   }
-
-  window.Refresh()
 }
 
 /* Network */
@@ -460,7 +458,7 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
 
 /* Navigation */
 
-func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
+func showListCheatsheet(parent *tui.Window, manager *WindowManager) {
   items := []HelpItem{
     HelpItem{ "q", "Exit" },
     HelpItem{ "jk↑↓", "Move cursor up and down" },
@@ -483,46 +481,60 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
 
 /* Utils */
 
-func control(char gc.Key) Input {
-  switch char {
-  case 'q':
-    return EXIT
-  case 'd':
-    return DELETE
-  case 'D':
-    return DELETE_WITH_DATA
-  case gc.KEY_RESIZE:
-    return RESIZE
-  case gc.KEY_UP, 'k':
-    return CURSOR_UP
-  case gc.KEY_DOWN, 'j':
-    return CURSOR_DOWN
-  case gc.KEY_PAGEDOWN:
-    return CURSOR_PAGEDOWN
-  case gc.KEY_PAGEUP:
-    return CURSOR_PAGEUP
-  case 'a':
-    return ADD
-  case ' ':
-    return SELECT
-  case 'c':
-    return CLEAR_SELECT
-  case 'l', gc.KEY_RIGHT, gc.KEY_RETURN:
-    return DETAILS
-  case 'p':
-    return PAUSE
-  case 'L':
-    return DOWN_LIMIT
-  case 'U':
-    return UP_LIMIT
-  case gc.KEY_F1:
-    return HELP
-  case 'm':
-    return MOVE
-  case 'A':
-    return SELECT_ALL
-  case 'i':
-    return INVERT_SELECT
+func control(char tui.Key) Input {
+  if char.Rune != nil {
+    switch *char.Rune {
+    case 'q':
+      return EXIT
+    case 'd':
+      return DELETE
+    case 'D':
+      return DELETE_WITH_DATA
+    case 'a':
+      return ADD
+    case ' ':
+      return SELECT
+    case 'c':
+      return CLEAR_SELECT
+    case 'l':
+      return DETAILS
+    case 'p':
+      return PAUSE
+    case 'L':
+      return DOWN_LIMIT
+    case 'U':
+      return UP_LIMIT
+    case 'm':
+      return MOVE
+    case 'k':
+      return CURSOR_UP
+    case 'j':
+      return CURSOR_DOWN
+    case 'A':
+      return SELECT_ALL
+    case 'i':
+      return INVERT_SELECT
+    }
+  } else if char.EscapeSeq != nil {
+    switch *char.EscapeSeq {
+    case tui.ESC_UP:
+      return CURSOR_UP
+    case tui.ESC_DOWN:
+      return CURSOR_DOWN
+    case tui.ESC_PGDOWN:
+      return CURSOR_PAGEDOWN
+    case tui.ESC_PGUP:
+      return CURSOR_PAGEUP
+    case tui.ESC_F1:
+      return HELP
+    case tui.ESC_RIGHT:
+      return DETAILS
+    }
+  } else if char.ControlCode != 0 {
+    switch char.ControlCode {
+    case tui.ASC_ENTER:
+      return DETAILS
+    }
   }
 
   return UNKNOWN

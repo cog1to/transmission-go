@@ -1,7 +1,7 @@
 package windows
 
 import (
-  gc "../goncurses"
+  tui "../tui"
   "../utils"
 )
 
@@ -15,8 +15,8 @@ type HelpItem struct {
 /* Window */
 
 type Cheatsheet struct {
-  parent *gc.Window
-  window *gc.Window
+  parent *tui.Window
+  window *tui.Window
   items []HelpItem
   manager *WindowManager
 }
@@ -35,17 +35,17 @@ func (window *Cheatsheet) Resize() {
   height, width, y, x := measureCheatsheet(window.parent, window.items)
 
   // Spawn new sub-window.
-  window.window.MoveWindow(y, x)
+  window.window.Move(y, x)
   window.window.Resize(height, width)
 }
 
-func (window *Cheatsheet) OnInput(key gc.Key) {
+func (window *Cheatsheet) OnInput(key tui.Key) {
   window.manager.RemoveWindow(window)
 }
 
-func NewCheatsheet(parent *gc.Window, items []HelpItem, manager *WindowManager) *Cheatsheet {
+func NewCheatsheet(parent *tui.Window, items []HelpItem, manager *WindowManager) *Cheatsheet {
   height, width, y, x := measureCheatsheet(parent, items)
-  window := parent.Derived(height, width, y, x)
+  window := parent.Sub(height, width, y, x)
 
   return &Cheatsheet{
     parent,
@@ -56,9 +56,8 @@ func NewCheatsheet(parent *gc.Window, items []HelpItem, manager *WindowManager) 
 
 /* Drawing */
 
-func drawCheatsheet(window *gc.Window, items []HelpItem) {
-  window.Clear()
-  window.Box(gc.ACS_VLINE, gc.ACS_HLINE)
+func drawCheatsheet(window *tui.Window, items []HelpItem) {
+  window.Box()
 
   _, col := window.MaxYX()
   startX, width := 2, col-4
@@ -83,7 +82,7 @@ func drawCheatsheet(window *gc.Window, items []HelpItem) {
     }
 
     // Transition
-    utils.WithAttribute(window, gc.A_BOLD, func(window *gc.Window) {
+    tui.WithAttribute(tui.ATTR_BOLD, func() {
       window.MovePrint(y, startX + maxLeft, " :: ")
     })
 
@@ -99,13 +98,11 @@ func drawCheatsheet(window *gc.Window, items []HelpItem) {
     // Advance to next item
     y += utils.MaxInt(inputY, textY)
   }
-
-  window.Refresh()
 }
 
 /* Measuring */
 
-func measureCheatsheet(parent *gc.Window, items []HelpItem) (int, int, int, int) {
+func measureCheatsheet(parent *tui.Window, items []HelpItem) (int, int, int, int) {
   const (
     OUTER_PADDING_X, OUTER_PADDING_Y = 3, 5
     INNER_PADDING = 4

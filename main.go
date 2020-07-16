@@ -4,15 +4,17 @@ package main
 import "C"
 
 import (
-  "log"
+  logger "./logger"
   "./transmission"
   "./windows"
-  gc "./goncurses"
+  tui "./tui"
   "flag"
 )
 
 func main() {
   C.setlocale(C.int(0), C.CString(""))
+
+  logger.Open("logfile.log")
 
   // Command line arguments.
   var host = flag.String("h", "localhost", "Hostname")
@@ -24,28 +26,16 @@ func main() {
   client := transmission.NewClient(*host, int32(*port))
 
   // Initialize curses.
-  stdscr, gcerr := gc.Init()
-  if gcerr != nil {
-    log.Fatal(gcerr)
-  }
-  defer gc.End()
+  stdscr := tui.Init()
+  defer tui.ShowCursor()
 
   // Screen init.
   stdscr.Refresh()
 
-  // Colors.
-  gc.StartColor()
-  gc.UseDefaultColors()
-  gc.InitPair(1, gc.C_BLACK, gc.C_CYAN)
-  gc.InitPair(2, gc.C_WHITE, gc.C_CYAN)
-
   // Basic setup.
-  gc.Raw(true)
-  gc.Echo(false)
-  gc.Cursor(0)
-
-  // Arrow keys support.
-  stdscr.Keypad(true)
+  tui.SetRaw(true)
+  tui.SetEcho(false)
+  tui.HideCursor()
 
   // Initialize window manager.
   manager := windows.NewWindowManager(stdscr)

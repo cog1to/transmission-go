@@ -1,14 +1,14 @@
 package windows
 
 import (
-  gc "../goncurses"
+  tui "../tui"
   "os"
   "os/signal"
   "syscall"
 )
 
 type InputReader interface {
-  OnInput(gc.Key)
+  OnInput(tui.Key)
 }
 
 type Window interface {
@@ -20,24 +20,24 @@ type Window interface {
 }
 
 type WindowManager struct {
-  root *gc.Window
+  root *tui.Window
   windows []Window
   inputReaders []InputReader
   signals chan os.Signal
   resize bool
-  input chan gc.Key
+  input chan tui.Key
   Exit chan bool
   Draw chan bool
 }
 
-func NewWindowManager(root *gc.Window) *WindowManager {
+func NewWindowManager(root *tui.Window) *WindowManager {
   manager := &WindowManager{
     root,
     make([]Window, 0),
     make([]InputReader, 0),
     make(chan os.Signal, 1),
     false,
-    make(chan gc.Key),
+    make(chan tui.Key),
     make(chan bool),
     make(chan bool)}
 
@@ -54,10 +54,11 @@ func NewWindowManager(root *gc.Window) *WindowManager {
   }()
 
   // Input channel.
+  tui.StartListening()
   go func() {
     for {
-      ch := root.GetWChar()
-      manager.input <- ch
+      input := <-tui.Input
+      manager.input <- input
     }
   }()
 
@@ -172,14 +173,13 @@ func (manager *WindowManager) Start() {
     case <-manager.Draw:
       if manager.resize {
         manager.resize = false
-        gc.End()
         manager.root.Refresh()
         manager.Resize()
         manager.Redraw()
       }
       manager.DrawTop()
     case input := <-manager.input:
-      if input != gc.KEY_RESIZE && len(manager.inputReaders) > 0 {
+      if len(manager.inputReaders) > 0 {
         lastReader := manager.inputReaders[len(manager.inputReaders) - 1]
         lastReader.OnInput(input)
       }
