@@ -78,18 +78,12 @@ func (win *Window) Resize(height, width int) {
 
 func (win *Window) Refresh() {
   var size Winsize
-  var row, col int
 
   if win.Parent == nil {
     size = Termsize()
 
     win.Width = size.Cols
     win.Height = size.Rows
-  } else {
-    size = Winsize{ Rows: win.Parent.Height, Cols: win.Parent.Width }
-    row, col = win.Parent.Row, win.Parent.Col
-    win.Width = min(win.Width, max(size.Cols - col, 0))
-    win.Height = min(win.Height, max(size.Rows - row, 0))
   }
 }
 

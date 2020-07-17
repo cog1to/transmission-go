@@ -4,7 +4,6 @@ package main
 import "C"
 
 import (
-  logger "./logger"
   "./transmission"
   "./windows"
   tui "./tui"
@@ -13,8 +12,6 @@ import (
 
 func main() {
   C.setlocale(C.int(0), C.CString(""))
-
-  logger.Open("logfile.log")
 
   // Command line arguments.
   var host = flag.String("h", "localhost", "Hostname")
