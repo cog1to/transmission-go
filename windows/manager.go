@@ -43,12 +43,15 @@ func NewWindowManager(root *tui.Window) *WindowManager {
 
   // Signal channel.
   signal.Notify(manager.signals, syscall.SIGWINCH)
+  signal.Notify(manager.signals, os.Interrupt)
   go func() {
     for {
       sig := <-manager.signals
       if sig == syscall.SIGWINCH {
         manager.resize = true
         manager.Draw <- true
+      } else if sig == os.Interrupt {
+        manager.Exit <- true
       }
     }
   }()

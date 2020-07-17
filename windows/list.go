@@ -88,6 +88,8 @@ func (window *ListWindow) Draw() {
 
 func (window *ListWindow) Resize() {
   window.window.Refresh()
+  window.window.Width = window.window.Parent.Width
+  window.window.Height = window.window.Parent.Height
 }
 
 func (window *ListWindow) OnInput(key tui.Key) {

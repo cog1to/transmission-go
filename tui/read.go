@@ -9,6 +9,7 @@ import(
 
 const(
   ESC_F1 = "\033[OP"
+  ESC_F1_S = "\033OP"
   ESC_HOME = "\033[1~"
   ESC_INSERT = "\033[2~"
   ESC_DELETE = "\033[3~"
@@ -83,6 +84,7 @@ func StartListening() {
             success = false
           } else {
             sequence := string(buffer[:(closeByteIndex + 1)])
+            if (sequence == ESC_F1_S) { sequence = ESC_F1 }
             shift(buffer, bufferLength, closeByteIndex + 1)
             index -= (closeByteIndex + 1)
             Input <- Key{EscapeSeq: &sequence}

@@ -45,7 +45,7 @@ func (window *Cheatsheet) OnInput(key tui.Key) {
 
 func NewCheatsheet(parent *tui.Window, items []HelpItem, manager *WindowManager) *Cheatsheet {
   height, width, y, x := measureCheatsheet(parent, items)
-  window := parent.Sub(height, width, y, x)
+  window := parent.Sub(y, x, height, width)
 
   return &Cheatsheet{
     parent,

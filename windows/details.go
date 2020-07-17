@@ -158,7 +158,8 @@ func (window *TorrentDetailsWindow) Draw() {
 }
 
 func (window *TorrentDetailsWindow) Resize() {
-  window.window.Refresh()
+  window.window.Width = window.window.Parent.Width
+  window.window.Height = window.window.Parent.Height
 }
 
 func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent *tui.Window, manager *WindowManager) *TorrentDetailsWindow {
