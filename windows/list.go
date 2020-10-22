@@ -64,7 +64,7 @@ type ListWindowState struct {
 
 
 type ListWindow struct {
-  window *tui.Window
+  window tui.Drawable
   client *transmission.Client
   state *ListWindowState
   workers worker.WorkerList
@@ -90,8 +90,8 @@ func (window *ListWindow) Draw() {
 
 func (window *ListWindow) Resize() {
   window.window.Refresh()
-  window.window.Width = window.window.Parent.Width
-  window.window.Height = window.window.Parent.Height
+  window.window.SetWidth(window.window.Parent().Width())
+  window.window.SetHeight(window.window.Parent().Height())
 }
 
 func (window *ListWindow) OnInput(key tui.Key) {
@@ -215,7 +215,7 @@ func (window *ListWindow) OnInput(key tui.Key) {
   }()
 }
 
-func NewListWindow(parent *tui.Window, client *transmission.Client, obfuscated bool, manager *WindowManager) *ListWindow {
+func NewListWindow(parent tui.Drawable, client *transmission.Client, obfuscated bool, manager *WindowManager) *ListWindow {
   rows, cols := parent.MaxYX()
   window := parent.Sub(0, 0, rows, cols)
 
@@ -306,7 +306,7 @@ func formatTorrentListItem(torrent interface{}, width int, obfuscated bool, prin
   printer(maxTitleLength + 7, details)
 }
 
-func drawList(window *tui.Window, state ListWindowState) {
+func drawList(window tui.Drawable, state ListWindowState) {
   window.Erase()
   row, col := window.MaxYX()
 
@@ -353,10 +353,10 @@ func drawList(window *tui.Window, state ListWindowState) {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", state.Error)
   }
 
-  window.Refresh()
+  window.Redraw()
 }
 
-func drawError(window *tui.Window, err error) {
+func drawError(window tui.Drawable, err error) {
   row, col := window.MaxYX()
 
   // Status.
@@ -365,6 +365,8 @@ func drawError(window *tui.Window, err error) {
   if err != nil {
     window.MovePrintf(row - FOOTER_HEIGHT + 1, 0, "%s", err)
   }
+
+  window.Redraw()
 }
 
 /* Network */
@@ -460,7 +462,7 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
 
 /* Navigation */
 
-func showListCheatsheet(parent *tui.Window, manager *WindowManager) {
+func showListCheatsheet(parent tui.Drawable, manager *WindowManager) {
   items := []HelpItem{
     HelpItem{ "q", "Exit" },
     HelpItem{ "jk↑↓", "Move cursor up and down" },

@@ -21,7 +21,7 @@ type InputField struct {
   Suggester Suggester
   Suggestion *string
   Manager *WindowManager
-  Parent *tui.Window
+  Parent tui.Drawable
   OnResult func(*InputField, InputFieldResult)
 }
 
@@ -41,7 +41,7 @@ func (field *InputField) Draw() {
 
   // Draw current value.
   if len(runes) > 0 {
-    utils.WithColor(window, tui.COLOR_4BIT_BLACK, tui.COLOR_4BIT_CYAN, func(window *tui.Window) {
+    window.WithColor(tui.COLOR_4BIT_BLACK, tui.COLOR_4BIT_CYAN, func() {
       start, end := field.Offset, utils.MinInt(field.Offset + field.Length, len(field.Value))
       window.MovePrint(field.Y, field.X, string(runes[start:end]))
     })
@@ -52,7 +52,7 @@ func (field *InputField) Draw() {
   if field.IsActive && field.Length > visible && field.Suggestion != nil {
     suggestionRunes := []rune(*field.Suggestion)
     tail := suggestionRunes[len(field.Value):utils.MinInt(len(suggestionRunes), len(field.Value)+(field.Length-visible))]
-    utils.WithColor(window, tui.COLOR_4BIT_WHITE, tui.COLOR_4BIT_CYAN, func(window *tui.Window) {
+    window.WithColor(tui.COLOR_4BIT_WHITE, tui.COLOR_4BIT_CYAN, func() {
       window.MovePrint(field.Y, field.X + visible, string(tail))
     })
     visible += len(tail)
@@ -60,7 +60,7 @@ func (field *InputField) Draw() {
 
   // Clear the rest of the field.
   if field.Length > visible {
-    utils.WithColor(window, tui.COLOR_4BIT_BLACK, tui.COLOR_4BIT_CYAN, func(window *tui.Window) {
+    window.WithColor(tui.COLOR_4BIT_BLACK, tui.COLOR_4BIT_CYAN, func() {
       window.MovePrint(field.Y, field.X + visible, strings.Repeat(" ", field.Length - visible))
     })
   }
@@ -207,6 +207,6 @@ func (field *InputField) UpdateSuggestion() {
   field.Suggestion = suggestion
 }
 
-func (field *InputField) SetCursor(window *tui.Window) {
+func (field *InputField) SetCursor(window tui.Drawable) {
   window.MoveTo(field.Y, field.X + (field.Cursor - field.Offset))
 }

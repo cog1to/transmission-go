@@ -15,8 +15,8 @@ type HelpItem struct {
 /* Window */
 
 type Cheatsheet struct {
-  parent *tui.Window
-  window *tui.Window
+  parent tui.Drawable
+  window tui.Drawable
   items []HelpItem
   manager *WindowManager
 }
@@ -43,7 +43,7 @@ func (window *Cheatsheet) OnInput(key tui.Key) {
   window.manager.RemoveWindow(window)
 }
 
-func NewCheatsheet(parent *tui.Window, items []HelpItem, manager *WindowManager) *Cheatsheet {
+func NewCheatsheet(parent tui.Drawable, items []HelpItem, manager *WindowManager) *Cheatsheet {
   height, width, y, x := measureCheatsheet(parent, items)
   window := parent.Sub(y, x, height, width)
 
@@ -56,7 +56,7 @@ func NewCheatsheet(parent *tui.Window, items []HelpItem, manager *WindowManager)
 
 /* Drawing */
 
-func drawCheatsheet(window *tui.Window, items []HelpItem) {
+func drawCheatsheet(window tui.Drawable, items []HelpItem) {
   window.Box()
 
   _, col := window.MaxYX()
@@ -98,11 +98,13 @@ func drawCheatsheet(window *tui.Window, items []HelpItem) {
     // Advance to next item
     y += utils.MaxInt(inputY, textY)
   }
+
+  window.Redraw()
 }
 
 /* Measuring */
 
-func measureCheatsheet(parent *tui.Window, items []HelpItem) (int, int, int, int) {
+func measureCheatsheet(parent tui.Drawable, items []HelpItem) (int, int, int, int) {
   const (
     OUTER_PADDING_X, OUTER_PADDING_Y = 3, 5
     INNER_PADDING = 4

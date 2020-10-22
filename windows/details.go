@@ -24,7 +24,7 @@ type TorrentDetailsState struct {
 type TorrentDetailsWindow struct {
   client *transmission.Client
   workers worker.WorkerList
-  window *tui.Window
+  window tui.Drawable
   manager *WindowManager
   state *TorrentDetailsState
 }
@@ -162,11 +162,11 @@ func (window *TorrentDetailsWindow) Draw() {
 }
 
 func (window *TorrentDetailsWindow) Resize() {
-  window.window.Width = window.window.Parent.Width
-  window.window.Height = window.window.Parent.Height
+  window.window.SetWidth(window.window.Parent().Width())
+  window.window.SetHeight(window.window.Parent().Height())
 }
 
-func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent *tui.Window, manager *WindowManager) *TorrentDetailsWindow {
+func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent tui.Drawable, manager *WindowManager) *TorrentDetailsWindow {
   rows, cols := parent.MaxYX()
 
   window := parent.Sub(0, 0, rows, cols)
@@ -242,7 +242,7 @@ func formatFile(file interface{}, width int, obfuscated bool, torrent *transmiss
   printer(0, details)
 }
 
-func drawDetails(window *tui.Window, state *TorrentDetailsState) {
+func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
   window.Erase()
   _, col := window.MaxYX()
 
@@ -309,7 +309,7 @@ func drawDetails(window *tui.Window, state *TorrentDetailsState) {
   drawError(window, state.Error)
 }
 
-func showDetailsCheatsheet(parent *tui.Window, manager *WindowManager) {
+func showDetailsCheatsheet(parent tui.Drawable, manager *WindowManager) {
   items := []HelpItem{
     HelpItem{ "qh←", "Go back to torrent list" },
     HelpItem{ "jk↑↓", "Move cursor up and down" },

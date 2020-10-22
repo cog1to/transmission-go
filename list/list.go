@@ -25,7 +25,7 @@ type Formatter = func(item interface{}, width int, printer func(int, string))
 
 type List struct {
   // Public
-  Window *tui.Window
+  Window tui.Drawable
   Formatter Formatter
   MarginTop, MarginBottom, MarginLeft, MarginRight int
 
@@ -50,14 +50,12 @@ func (drawer *List) Draw() {
     attribute := make([]tui.Attribute, 0)
     if index + drawer.Offset == drawer.Cursor {
       attribute = append(attribute, tui.ATTR_REVERSED)
-    } else {
-      attribute = append(attribute, tui.ATTR_NORMAL)
     }
     if utils.Contains(drawer.Selection, drawer.Items[index + drawer.Offset].Id()) {
       attribute = append(attribute, tui.ATTR_BOLD)
     }
 
-    tui.WithAttributes(attribute, func() {
+    drawer.Window.WithAttributes(attribute, func() {
       drawer.Formatter(item, cols - drawer.MarginLeft - drawer.MarginRight, func(offset int, str string) {
         drawer.Window.MovePrint(y, x + offset, str)
       })
