@@ -8,12 +8,10 @@ import (
   "./windows"
   tui "./tui"
   "flag"
-  "./logger"
 )
 
 func main() {
   C.setlocale(C.int(0), C.CString(""))
-  logger.Open("log.log")
 
   // Command line arguments.
   var host = flag.String("h", "localhost", "Hostname")
