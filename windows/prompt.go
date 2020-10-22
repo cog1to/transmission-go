@@ -22,8 +22,8 @@ type PromptState struct {
 /* Window */
 
 type Prompt struct {
-  parent *tui.Window
-  window *tui.Window
+  parent tui.Drawable
+  window tui.Drawable
   manager *WindowManager
   state *PromptState
 }
@@ -62,6 +62,9 @@ func (window *Prompt) Draw() {
   // Controls reminder.
   window.window.MovePrint(3, startX + (width - len(CONTROLS_TEXT)) / 2, CONTROLS_TEXT)
 
+  // Trigger screen refresh.
+  window.window.Redraw()
+
   // Cursor.
   window.state.Field.SetCursor(window.window)
 }
@@ -72,7 +75,7 @@ func (window *Prompt) Resize() {
   window.window.Resize(height, width)
 }
 
-func MeasurePrompt(parent *tui.Window, title string, limit int) (int, int, int, int) {
+func MeasurePrompt(parent tui.Drawable, title string, limit int) (int, int, int, int) {
   rows, cols := parent.MaxYX()
 
   promptDecorationLength := 4 + len(title) + 1
@@ -90,7 +93,7 @@ func MeasurePrompt(parent *tui.Window, title string, limit int) (int, int, int, 
 }
 
 func NewPrompt(
-  parent *tui.Window,
+  parent tui.Drawable,
   manager *WindowManager,
   title string,
   limit int,
@@ -152,7 +155,7 @@ func NewPrompt(
 
 /* Public helpers */
 
-func IntPrompt(parent *tui.Window, manager *WindowManager, title string, value int, flag bool, onFinish func(int), onError func(error)) {
+func IntPrompt(parent tui.Drawable, manager *WindowManager, title string, value int, flag bool, onFinish func(int), onError func(error)) {
   var initialValue string
   if flag && value > 0 {
     initialValue = fmt.Sprintf("%d", value)
@@ -190,7 +193,7 @@ func IntPrompt(parent *tui.Window, manager *WindowManager, title string, value i
   manager.AddWindow(prompt)
 }
 
-func PathPrompt(parent *tui.Window, manager *WindowManager, title string, initial string, onFinish func(string), onError func(error)) {
+func PathPrompt(parent tui.Drawable, manager *WindowManager, title string, initial string, onFinish func(string), onError func(error)) {
   var initialValue = initial
   if initialValue == "" {
     initialValue = "~"

@@ -20,7 +20,7 @@ type Window interface {
 }
 
 type WindowManager struct {
-  root *tui.Window
+  root tui.Drawable
   windows []Window
   inputReaders []InputReader
   signals chan os.Signal
@@ -30,7 +30,7 @@ type WindowManager struct {
   Draw chan bool
 }
 
-func NewWindowManager(root *tui.Window) *WindowManager {
+func NewWindowManager(root tui.Drawable) *WindowManager {
   manager := &WindowManager{
     root,
     make([]Window, 0),

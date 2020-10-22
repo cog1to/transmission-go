@@ -34,8 +34,8 @@ const (
 
 type AddTorrentWindow struct {
   client *transmission.Client
-  parent *tui.Window
-  window *tui.Window
+  parent tui.Drawable
+  window tui.Drawable
   manager *WindowManager
   state *NewTorrentWindowState
   onError func(error)
@@ -83,26 +83,25 @@ func (dialog *AddTorrentWindow) Draw() {
   window.HLine(7, 1, col-2)
 
   buttonWidth := width / 2
-  var attribute tui.Attribute
-  attribute = tui.ATTR_NORMAL
+  var attribute []tui.Attribute
 
   // Confirm
   if state.Focus == FOCUS_CONFIRM {
-    attribute = tui.ATTR_REVERSED
+    attribute = []tui.Attribute{tui.ATTR_REVERSED}
   } else {
-    attribute = tui.ATTR_NORMAL
+    attribute = []tui.Attribute{}
   }
-  tui.WithAttribute(attribute, func() {
+  window.WithAttributes(attribute, func() {
     window.MovePrint(8, startX + (buttonWidth - len("Confirm")) / 2, "Confirm")
   })
 
   // Cancel
   if state.Focus == FOCUS_CANCEL {
-    attribute = tui.ATTR_REVERSED
+    attribute = []tui.Attribute{tui.ATTR_REVERSED}
   } else {
-    attribute = tui.ATTR_NORMAL
+    attribute = []tui.Attribute{}
   }
-  tui.WithAttribute(attribute, func() {
+  window.WithAttributes(attribute, func() {
     window.MovePrint(8, startX + buttonWidth + (buttonWidth - len("Cancel")) / 2, "Cancel")
   })
 
@@ -112,6 +111,8 @@ func (dialog *AddTorrentWindow) Draw() {
   } else {
     tui.HideCursor()
   }
+
+  window.Redraw()
 
   // Move cursor if needed.
   switch state.Focus {
@@ -130,7 +131,7 @@ func (window *AddTorrentWindow) Resize() {
   window.window.Resize(height, width)
 }
 
-func MeasureAddTorrentWindow(parent *tui.Window) (int, int, int, int) {
+func MeasureAddTorrentWindow(parent tui.Drawable) (int, int, int, int) {
   rows, cols := parent.MaxYX()
 
   height, width := 10, utils.MinInt(cols, utils.MaxInt(60, cols * 3 / 4))
@@ -212,7 +213,7 @@ func (window *AddTorrentWindow) UpdateFocus(source *InputField, direction int) {
   }()
 }
 
-func NewAddTorrentWindow(client *transmission.Client, parent *tui.Window, manager *WindowManager, onError func(error)) *AddTorrentWindow {
+func NewAddTorrentWindow(client *transmission.Client, parent tui.Drawable, manager *WindowManager, onError func(error)) *AddTorrentWindow {
   height, width, y, x := MeasureAddTorrentWindow(parent)
   window := parent.Sub(y, x, height, width)
 
