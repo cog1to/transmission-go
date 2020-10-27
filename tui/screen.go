@@ -36,57 +36,97 @@ func (screen *Screen) Redraw() {
   box := false
   var color *colorPair
 
+  printLine := func(symbols []cell, row, start int) {
+    newCell := symbols[0]
+
+    if newCell.box != box {
+      box = newCell.box
+      if newCell.box {
+        fmt.Printf(ESC_BEGIN_BOXDRAW)
+      } else {
+        fmt.Printf(ESC_END_BOXDRAW)
+      }
+    }
+
+    for _, attr := range(newCell.attributes) {
+      if !Contains(attributes, attr) {
+        AttributeOn(attr)
+        attributes = append(attributes, attr)
+      }
+    }
+
+    for _, attr := range(attributes) {
+      if !Contains(newCell.attributes, attr) {
+        AttributeOff(attr)
+        attributes = Remove(attributes, attr)
+      }
+    }
+
+    if !SameColor(newCell.color, color) {
+      if newCell.color != nil {
+        color = newCell.color
+        ColorOn(color.front, color.back)
+      } else {
+        color = nil
+        ColorOff()
+      }
+    }
+
+    var line string = ""
+    for _, cell := range(symbols) {
+      if !cell.wide {
+        line += string(cell.symbol)
+      }
+    }
+
+    MovePrintf(row, start, "%s", line)
+  }
+
+  differentParams := func(left, right cell) bool {
+    return left.box != right.box ||
+      left.wide != right.wide ||
+      !Same(left.attributes, right.attributes) ||
+      !SameColor(left.color, right.color)
+  }
+
   // Draw.
   for i := 0; i < screen.height; i++ {
-    for j := 0; j < screen.width; j++ {
+    // Container for uninterrupted sequence of symbols.
+    // This slice accumulates the line of cells with the exact same params.
+    lineStart := 0;
+    lineEnd := 0;
+    symbols := []cell{}
 
+    for j := 0; j < screen.width; j++ {
       newCell := screen.cells[i][j]
       bufferCell := screen.buffer[i][j]
 
       if newCell.symbol != bufferCell.symbol ||
-          newCell.box != bufferCell.box ||
-          newCell.wide != bufferCell.wide  ||
-          !Same(newCell.attributes, bufferCell.attributes) ||
-          !SameColor(newCell.color, bufferCell.color) {
-        if newCell.box != box {
-          box = newCell.box
-          if newCell.box {
-            fmt.Printf(ESC_BEGIN_BOXDRAW)
-          } else {
-            fmt.Printf(ESC_END_BOXDRAW)
-          }
-        }
-
-        for _, attr := range(newCell.attributes) {
-          if !Contains(attributes, attr) {
-            AttributeOn(attr)
-            attributes = append(attributes, attr)
-          }
-        }
-
-        for _, attr := range(attributes) {
-          if !Contains(newCell.attributes, attr) {
-            AttributeOff(attr)
-            attributes = Remove(attributes, attr)
-          }
-        }
-
-        if !SameColor(newCell.color, color) {
-          if newCell.color != nil {
-            color = newCell.color
-            ColorOn(color.front, color.back)
-          } else {
-            color = nil
-            ColorOff()
-          }
-        }
-
-        if !newCell.wide {
-          MovePrintf(i, j, "%c", newCell.symbol)
+          differentParams(newCell, bufferCell) {
+        // No buffered data yet -> initialize new buffer.
+        if len(symbols) == 0 {
+          lineStart = j;
+          lineEnd = j+1;
+          symbols = []cell{newCell}
+        // Current symbol has different drawing params than the first one ->
+        // -> print current line, initialize new buffer with current symbol.
+        } else if differentParams(symbols[0], newCell) || j != lineEnd {
+          printLine(symbols, i, lineStart)
+          lineStart = j;
+          lineEnd = j;
+          symbols = []cell{newCell}
+        // Current symbol matches the first one in the buffer -> just append.
+        } else {
+          lineEnd += 1
+          symbols = append(symbols, newCell)
         }
       }
 
       screen.buffer[i][j] = newCell
+    }
+
+    if (len(symbols) > 0) {
+      printLine(symbols, i, lineStart)
     }
   }
 
