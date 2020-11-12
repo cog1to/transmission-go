@@ -36,7 +36,7 @@ func (screen *Screen) Redraw() {
   box := false
   var color *colorPair
 
-  printLine := func(symbols []cell, row, start int) {
+  printLine := func(line string, symbols []cell, row, start int) {
     newCell := symbols[0]
 
     if newCell.box != box {
@@ -72,13 +72,6 @@ func (screen *Screen) Redraw() {
       }
     }
 
-    var line string = ""
-    for _, cell := range(symbols) {
-      if !cell.wide {
-        line += string(cell.symbol)
-      }
-    }
-
     MovePrintf(row, start, "%s", line)
   }
 
@@ -96,6 +89,7 @@ func (screen *Screen) Redraw() {
     lineStart := 0;
     lineEnd := 0;
     symbols := []cell{}
+    line := ""
 
     for j := 0; j < screen.width; j++ {
       newCell := screen.cells[i][j]
@@ -108,17 +102,28 @@ func (screen *Screen) Redraw() {
           lineStart = j;
           lineEnd = j+1;
           symbols = []cell{newCell}
+          if !newCell.wide {
+            line += string(newCell.symbol)
+          }
         // Current symbol has different drawing params than the first one ->
         // -> print current line, initialize new buffer with current symbol.
         } else if differentParams(symbols[0], newCell) || j != lineEnd {
-          printLine(symbols, i, lineStart)
+          printLine(line, symbols, i, lineStart)
           lineStart = j;
           lineEnd = j;
           symbols = []cell{newCell}
+          if !newCell.wide {
+            line = string(newCell.symbol)
+          } else {
+            line = ""
+          }
         // Current symbol matches the first one in the buffer -> just append.
         } else {
           lineEnd += 1
           symbols = append(symbols, newCell)
+          if !newCell.wide {
+            line += string(newCell.symbol)
+          }
         }
       }
 
@@ -126,7 +131,7 @@ func (screen *Screen) Redraw() {
     }
 
     if (len(symbols) > 0) {
-      printLine(symbols, i, lineStart)
+      printLine(line, symbols, i, lineStart)
     }
   }
 
