@@ -11,6 +11,14 @@ type Identifiable interface {
   Id() int
 }
 
+func MapIds(slice []Identifiable) []int {
+  mapped := make([]int, len(slice), len(slice))
+  for idx, item := range(slice) {
+    mapped[idx] = item.Id()
+  }
+  return mapped
+}
+
 /* List */
 
 type Formatter = func(item interface{}, width int, printer func(int, string))
@@ -103,6 +111,23 @@ func (drawer *List) Select() {
 
 func (drawer *List) ClearSelection() {
   drawer.Selection = []int{}
+}
+
+func (drawer *List) SelectAll() {
+  drawer.Selection = MapIds(drawer.Items)
+}
+
+func (drawer *List) InvertSelection() {
+  allItems := MapIds(drawer.Items)
+
+  inverted := make([]int, 0)
+  for _, item := range(allItems) {
+    if !utils.Contains(drawer.Selection, item) {
+      inverted = append(inverted, item)
+    }
+  }
+
+  drawer.Selection = inverted
 }
 
 func (drawer *List) SetItems(items []Identifiable) {

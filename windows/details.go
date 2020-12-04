@@ -60,6 +60,10 @@ func (window *TorrentDetailsWindow) OnInput(key gc.Key) {
     state.List.Page(1)
   case 'c':
     state.List.ClearSelection()
+  case 'a':
+    state.List.SelectAll()
+  case 'i':
+    state.List.InvertSelection()
   case 'p':
     // Change priority.
     items := state.List.GetSelection()
