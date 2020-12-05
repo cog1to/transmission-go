@@ -47,6 +47,8 @@ All of the actions on torrents and files work either with current selection (if 
 | a     | Add new torrent |
 | Space | Toggle selection |
 | c     | Clear selection |
+| A     | Select all items |
+| i     | Invert selection |
 | d     | Remove torrent(s) from the list (keep data) |
 | D     | Delete torrent(s) along with the data |
 | p     | Start/stop selected torrent(s) |
@@ -63,6 +65,8 @@ All of the actions on torrents and files work either with current selection (if 
 | jk↑↓  | Move cursor up and down |
 | Space | Toggle selection |
 | c     | Clear selection |
+| A     | Select all items |
+| i     | Invert selection |
 | g     | Download/Don't download selected file(s) |
 | p     | Change priority of selected file(s) |
 | L     | Set torrent's download speed limit |
