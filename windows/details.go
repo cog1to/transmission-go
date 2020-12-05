@@ -309,6 +309,8 @@ func showDetailsCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "jk↑↓", "Move cursor up and down" },
     HelpItem{ "Space", "Toggle selection" },
     HelpItem{ "c", "Clear selection" },
+    HelpItem{ "a", "Select all items" },
+    HelpItem{ "i", "Invert selection" },
     HelpItem{ "g", "Download/Don't download selected file(s)" },
     HelpItem{ "p", "Change priority of selected file(s)" },
     HelpItem{ "L", "Set torrent's download speed limit" },
