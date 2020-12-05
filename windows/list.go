@@ -38,6 +38,8 @@ const (
   UP_LIMIT
   HELP
   MOVE
+  SELECT_ALL
+  INVERT_SELECT
   UNKNOWN
 )
 
@@ -130,6 +132,14 @@ func (window *ListWindow) OnInput(key gc.Key) {
     case CLEAR_SELECT:
       // Clear selection.
       window.state.List.ClearSelection()
+      window.state.PendingOperation = nil
+    case INVERT_SELECT:
+      // Invert selection.
+      window.state.List.InvertSelection()
+      window.state.PendingOperation = nil
+    case SELECT_ALL:
+      // Select all items.
+      window.state.List.SelectAll()
       window.state.PendingOperation = nil
     case PAUSE:
       // Pause/Start selected torrents.
@@ -458,6 +468,8 @@ func showListCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "a", "Add new torrent" },
     HelpItem{ "Space", "Toggle selection" },
     HelpItem{ "c", "Clear selection" },
+    HelpItem{ "A", "Select all items" },
+    HelpItem{ "i", "Invert selection" },
     HelpItem{ "d", "Remove torrent(s) from the list (keep data)" },
     HelpItem{ "D", "Delete torrent(s) along with the data" },
     HelpItem{ "p", "Start/stop selected torrent(s)" },
@@ -507,6 +519,10 @@ func control(char gc.Key) Input {
     return HELP
   case 'm':
     return MOVE
+  case 'A':
+    return SELECT_ALL
+  case 'i':
+    return INVERT_SELECT
   }
 
   return UNKNOWN

@@ -60,7 +60,7 @@ func (window *TorrentDetailsWindow) OnInput(key gc.Key) {
     state.List.Page(1)
   case 'c':
     state.List.ClearSelection()
-  case 'a':
+  case 'A':
     state.List.SelectAll()
   case 'i':
     state.List.InvertSelection()
@@ -309,7 +309,7 @@ func showDetailsCheatsheet(parent *gc.Window, manager *WindowManager) {
     HelpItem{ "jk↑↓", "Move cursor up and down" },
     HelpItem{ "Space", "Toggle selection" },
     HelpItem{ "c", "Clear selection" },
-    HelpItem{ "a", "Select all items" },
+    HelpItem{ "A", "Select all items" },
     HelpItem{ "i", "Invert selection" },
     HelpItem{ "g", "Download/Don't download selected file(s)" },
     HelpItem{ "p", "Change priority of selected file(s)" },
