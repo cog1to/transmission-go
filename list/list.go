@@ -107,6 +107,8 @@ func (drawer *List) Select() {
   } else {
     drawer.Selection = append(drawer.Selection, id)
   }
+
+  drawer.MoveCursor(1);
 }
 
 func (drawer *List) ClearSelection() {
