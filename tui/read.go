@@ -85,7 +85,7 @@ func StartListening() {
           } else {
             sequence := string(buffer[:(closeByteIndex + 1)])
             if (sequence == ESC_F1_S) { sequence = ESC_F1 }
-            shift(buffer, bufferLength, closeByteIndex + 1)
+            shiftLeft(buffer, bufferLength, closeByteIndex + 1)
             index -= (closeByteIndex + 1)
             Input <- Key{EscapeSeq: &sequence}
           }
@@ -96,7 +96,7 @@ func StartListening() {
             code = ASC_ENTER
           }
 
-          shift(buffer, bufferLength, 1)
+          shiftLeft(buffer, bufferLength, 1)
           index -= 1
           Input <- Key{ControlCode: int(code)}
         // Everything else should be interpreted as runes.
@@ -105,7 +105,7 @@ func StartListening() {
           if r == utf8.RuneError {
             success = false
           } else {
-            shift(buffer, bufferLength, size)
+            shiftLeft(buffer, bufferLength, size)
             index -= size
             Input <- Key{Rune: &r}
           }
@@ -119,6 +119,9 @@ func StartListening() {
   }()
 }
 
+/* Utils. */
+
+// Returns lesser of two integers.
 func min(a, b int) int {
   if a < b {
     return a
@@ -126,6 +129,7 @@ func min(a, b int) int {
   return b
 }
 
+// Returns higher of two integers.
 func max(a, b int) int {
   if a > b {
     return a
@@ -133,7 +137,9 @@ func max(a, b int) int {
   return b
 }
 
-func shift(arr []byte, length, from int) {
+// Shifts contents of array to the left by `from` number of elements.
+// For example shiftLeft([0, 1, 2, 3, 4], 2) -> [2, 3, 4, 0, 0]
+func shiftLeft(arr []byte, length, from int) {
   rest := arr[from:]
   copy(arr, rest)
   for i := length - from; i < length; i++ {
