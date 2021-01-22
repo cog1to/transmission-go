@@ -5,22 +5,21 @@ package tui
 // #include <unistd.h>
 import "C"
 
+var termios *C.struct_termios
+
 func SetRaw(enabled bool) {
-  SetParam(C.OPOST, enabled)
-}
-
-func SetEcho(enabled bool) {
-  SetParam(C.ECHO, enabled)
-}
-
-func SetParam(param C.uint, enabled bool) {
-  termios := C.struct_termios{}
-
-  C.tcgetattr(C.STDIN_FILENO, &termios)
-  if (enabled) {
-    termios.c_lflag = termios.c_lflag & param
-  } else {
-    termios.c_lflag = termios.c_lflag &^ param
+  if (termios == nil) {
+    termios = &C.struct_termios{}
+    C.tcgetattr(C.STDIN_FILENO, termios)
   }
-  C.tcsetattr(C.STDIN_FILENO, C.TCSAFLUSH, &termios)
+
+  if (enabled) {
+    copy := *termios
+    copy.c_lflag = copy.c_lflag & C.OPOST
+    copy.c_lflag = copy.c_lflag &^ C.ECHO
+    C.tcsetattr(C.STDIN_FILENO, C.TCSAFLUSH, &copy)
+  } else {
+    C.tcsetattr(C.STDIN_FILENO, C.TCSAFLUSH, termios)
+  }
 }
+

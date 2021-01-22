@@ -123,6 +123,7 @@ func (field *InputField) OnInput(c tui.Key) {
       }
     case tui.ASC_BACKSPACE, tui.ASC_DELETE:
       field.ControlCode(c.ControlCode)
+      field.OnResult(field, UPDATE)
     case tui.ASC_ENTER:
       field.IsActive = false
       if field.IsModal {

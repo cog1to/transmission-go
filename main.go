@@ -24,15 +24,18 @@ func main() {
 
   // Initialize curses.
   stdscr := tui.Init()
-  defer tui.ShowCursor()
 
   // Screen init.
   stdscr.Refresh()
 
   // Basic setup.
   tui.SetRaw(true)
-  tui.SetEcho(false)
   tui.HideCursor()
+  defer func() {
+    tui.ShowCursor()
+    tui.SetRaw(false)
+    tui.Clear()
+  }()
 
   // Initialize window manager.
   manager := windows.NewWindowManager(stdscr)

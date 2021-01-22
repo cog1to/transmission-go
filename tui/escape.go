@@ -3,7 +3,7 @@ package tui
 type EscapeSequence string
 
 const(
-  ESC_CLEAR_SCREEN EscapeSequence = "\033[2J"
+  ESC_CLEAR_SCREEN EscapeSequence = "\033c"
   ESC_MOVE_TO = "\033[%d;%dH"
   ESC_CLEAR_COLOR = "\033[39m\033[49m"
   ESC_BEGIN_BOXDRAW = "\033(0"
