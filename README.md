@@ -96,12 +96,6 @@ Default install path of `usr/local/bin` can be changed by passing `INSTALL_DIR=/
 
 Feel free to use, modify, report bugs, create feature requests or pull requests.
 
-## Acknowledgements
-
-Wide-char support: [GeertJohan/cgo.wchar](https://github.com/GeertJohan/cgo.wchar)
-
-Goncurses: [rthornton128/goncurses](https://github.com/rthornton128/goncurses). I had to modify it a little to expose wide-character functions of ncurses.
-
 ## License
 
-GPLv3
+GPLv2
