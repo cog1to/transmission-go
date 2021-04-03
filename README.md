@@ -1,6 +1,6 @@
 # transmission-go
 
-Feature-poor ncurses-based `transmission-daemon` client.
+Feature-poor TUI `transmission-daemon` client.
 
 ## Reason
 
