@@ -27,6 +27,8 @@ func GetSuggestedPaths(input string) []string {
   var expandedBase string
   if strings.HasPrefix(base, "~/") {
     expandedBase = utils.ExpandHome(base)
+  } else {
+    expandedBase = base
   }
 
   file, err := os.Open(expandedBase)
