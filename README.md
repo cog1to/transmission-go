@@ -26,9 +26,11 @@ Torrent details.
 
 ### Launch Arguments
 
-`-h` -- hostname to connect to; default: `localhost`
+`-h <HOST>` -- hostname to connect to; default: `localhost`
 
-`-p` -- port number; default: `9091`
+`-p <PORT>` -- port number; default: `9091`
+
+`-s` -- execute `transmission-daemon` before starting the client.
 
 `-o` -- obfuscate all torrent and filenames (added this just for making screenshots)
 
