@@ -43,4 +43,3 @@ func SetWantedRequest(id int, files []int, wanted bool) RequestBuilder {
         wantedValue: files}}.ToRequest()
   }
 }
-
