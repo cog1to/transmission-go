@@ -22,6 +22,7 @@ const (
 
 const (
   EXIT Input = iota
+  STOP_AND_EXIT
   RESIZE
   CURSOR_UP
   CURSOR_DOWN
@@ -55,13 +56,15 @@ type ListActiveOperation struct {
   ListOperation
 }
 
+type ExitOperation struct {}
+
 type ListWindowState struct {
   PendingOperation *ListOperation
   Error error
   List list.List
   Settings Settings
+  ConnectionEstablished bool
 }
-
 
 type ListWindow struct {
   window tui.Drawable
@@ -98,6 +101,15 @@ func (window *ListWindow) OnInput(key tui.Key) {
   go func() {
     command := control(key)
     switch command {
+    case STOP_AND_EXIT:
+      var result bool = true
+      if window.client.Connected {
+        op := ExitOperation{}
+        result = handleOperation(window.client, op, window.state)
+      }
+      if result == true {
+        window.manager.Exit <- true
+      }
     case EXIT:
       window.manager.Exit <- true
       return
@@ -429,7 +441,7 @@ func setListLocation(client *transmission.Client, ids []int, location string, st
   }
 }
 
-func handleOperation(client *transmission.Client, operation interface{}, state *ListWindowState) {
+func handleOperation(client *transmission.Client, operation interface{}, state *ListWindowState) bool {
   var e error
 
   switch operation.(type) {
@@ -448,8 +460,10 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
     default:
       e = fmt.Errorf("Unknown list operation type")
     }
+  case ExitOperation:
+    e = client.Exit()
   default:
-    e = fmt.Errorf("Unknown operation type")
+    e = fmt.Errorf("Unknown operation type: %T", operation)
   }
 
   if e != nil {
@@ -457,6 +471,8 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
   } else {
     updateList(client, state)
   }
+
+  return e == nil
 }
 
 
@@ -465,6 +481,7 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
 func showListCheatsheet(parent tui.Drawable, manager *WindowManager) {
   items := []HelpItem{
     HelpItem{ "q", "Exit" },
+    HelpItem{ "Q", "Close the session & exit" },
     HelpItem{ "jk↑↓", "Move cursor up and down" },
     HelpItem{ "l→", "Go to torrent details" },
     HelpItem{ "a", "Add new torrent" },
@@ -490,6 +507,8 @@ func control(char tui.Key) Input {
     switch *char.Rune {
     case 'q':
       return EXIT
+    case 'Q':
+      return STOP_AND_EXIT
     case 'd':
       return DELETE
     case 'D':

@@ -186,3 +186,6 @@ func (client *Client) GetSessionSettings() (*SessionSettings, error) {
   return args, nil
 }
 
+func (client *Client) Exit() error {
+  return client.performWithoutData(ExitRequest())
+}

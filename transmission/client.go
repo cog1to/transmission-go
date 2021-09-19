@@ -10,11 +10,12 @@ import (
 type Client struct {
   Host string
   Port int32
+  Connected bool
   token string
 }
 
 func NewClient(host string, port int32) *Client {
-  return &Client{ host, port, "" }
+  return &Client{ host, port, false, "" }
 }
 
 func (client *Client) refresh() error {
@@ -36,6 +37,7 @@ func (client *Client) refresh() error {
   }
 
   client.token = token
+  client.Connected = true
   return nil
 }
 
