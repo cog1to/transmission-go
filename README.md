@@ -44,6 +44,7 @@ All of the actions on torrents and files work either with current selection (if 
 |-------|--------|
 | F1    | Show cheatsheet |
 | q     | Exit |
+| Q     | Send 'session-close' command and exit |
 | jk↑↓  | Move cursor up and down |
 | l→    | Go to torrent details |
 | a     | Add new torrent |
