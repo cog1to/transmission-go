@@ -390,9 +390,7 @@ func updateList(client *transmission.Client, state *ListWindowState) {
     state.List.Items = transform.GeneralizeTorrents(*list)
   }
 
-  if err != nil {
-    state.Error = err
-  }
+  state.Error = err
 }
 
 func updateSession(client *transmission.Client, state *ListWindowState) {
