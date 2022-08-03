@@ -265,7 +265,7 @@ func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
     // %Done. Handle unknown torrent size.
     var done string
     if item.SizeWhenDone == 0 {
-      done = fmt.Sprintf("%3.0f%%", 0)
+      done = fmt.Sprintf("%3.0f%%", 0.0)
     } else {
       done = fmt.Sprintf(
         "%3.0f%%",
