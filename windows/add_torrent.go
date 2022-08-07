@@ -159,9 +159,9 @@ func (window *AddTorrentWindow) OnInput(key tui.Key) {
     }
   } else if key.EscapeSeq != nil {
     switch *key.EscapeSeq {
-    case tui.ESC_UP:
+    case tui.ESC_UP, tui.ESC_LEFT:
       window.UpdateFocus(nil, -1)
-    case tui.ESC_DOWN:
+    case tui.ESC_DOWN, tui.ESC_RIGHT:
       window.UpdateFocus(nil, 1)
     }
   }
@@ -219,8 +219,8 @@ func NewAddTorrentWindow(client *transmission.Client, parent tui.Drawable, manag
 
   // Window state
   state := &NewTorrentWindowState{
-    UrlField: &InputField{ 2, 4, width - 4, false, 0, 0, true, []rune{}, 0, "", suggestions.GetSuggestedPaths, nil, manager, window, nil },
-    PathField: &InputField{ 2, 6, width - 4, false, 0, 0, false, []rune{}, 0, "", suggestions.GetSuggestedPaths, nil, manager, window, nil }}
+    UrlField: &InputField{ 2, 4, width - 4, false, 0, 0, true, []rune{}, 0, "", suggestions.GetSuggestedFiles, nil, manager, window, nil },
+    PathField: &InputField{ 2, 6, width - 4, false, 0, 0, false, []rune{}, 0, "", suggestions.GetSuggestedDirs, nil, manager, window, nil }}
 
   dialog := &AddTorrentWindow{
     client,

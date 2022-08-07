@@ -22,3 +22,12 @@ func Contains(slice []int, el int) bool {
   return false
 }
 
+func IndexOf(slice []string, el string) int {
+  for ind, element := range slice {
+    if element == el {
+      return ind
+    }
+  }
+
+  return -1
+}
