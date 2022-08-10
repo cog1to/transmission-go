@@ -128,6 +128,7 @@ func (field *InputField) OnInput(c tui.Key) {
       if len(suggestions) > 0 {
         if field.Suggestion != nil {
           if len(suggestions) > 1 {
+            // Cycle suggestion.
             suggestIndex := (utils.IndexOf(suggestions, *field.Suggestion) + 1) % len(suggestions)
             field.Suggestion = &suggestions[suggestIndex];
             field.Offset = utils.MaxInt(0, len(*field.Suggestion) - field.Length + 1)
@@ -147,11 +148,15 @@ func (field *InputField) OnInput(c tui.Key) {
       field.ControlCode(c.ControlCode)
       field.OnResult(field, UPDATE)
     case tui.ASC_ENTER:
-      field.IsActive = false
-      if field.IsModal {
-        field.OnResult(field, CONFIRM)
+      if field.Suggestion != nil {
+        field.ConfirmSuggestion()
       } else {
-        field.OnResult(field, FOCUS_FORWARD)
+        field.IsActive = false
+        if field.IsModal {
+          field.OnResult(field, CONFIRM)
+        } else {
+          field.OnResult(field, FOCUS_FORWARD)
+        }
       }
     }
   }
