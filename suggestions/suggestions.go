@@ -7,7 +7,17 @@ import (
   "../utils"
 )
 
-func GetSuggestedPaths(input string) []string {
+func GetSuggestedDirs(input string) []string {
+  return getSuggestedPaths(input, false)
+}
+
+func GetSuggestedFiles(input string) []string {
+  return getSuggestedPaths(input, true)
+}
+
+/** Private methods **/
+
+func getSuggestedPaths(input string, includeFiles bool) []string {
   if len(input) == 0 {
     return []string{}
   }
@@ -52,7 +62,11 @@ func GetSuggestedPaths(input string) []string {
   }
 
   if len(name) == 0 || !strings.HasPrefix(name, ".") {
-    matching = filter(matching, func(file os.FileInfo)(bool) { return !strings.HasPrefix(file.Name(), ".") })
+    matching = filter(
+      matching,
+      func(file os.FileInfo)(bool) {
+        return !strings.HasPrefix(file.Name(), ".") && (includeFiles || file.IsDir())
+      })
   }
 
   result := apply(matching, func(file os.FileInfo)(string) {

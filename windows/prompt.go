@@ -214,6 +214,6 @@ func PathPrompt(parent tui.Drawable, manager *WindowManager, title string, initi
     func() {
       manager.RemoveWindow(prompt)
     },
-    suggestions.GetSuggestedPaths)
+    suggestions.GetSuggestedDirs)
   manager.AddWindow(prompt)
 }

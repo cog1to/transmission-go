@@ -91,11 +91,15 @@ func (field *InputField) OnInput(c tui.Key) {
       }
       field.OnResult(field, UPDATE)
     case tui.ESC_RIGHT:
-      field.Cursor = utils.MinInt(len(field.Value), field.Cursor + 1)
-      if (field.Offset + field.Length) < field.Cursor {
-        field.Offset += 1
+      if field.Cursor == len(field.Value) && field.Suggestion != nil {
+        field.ConfirmSuggestion()
+      } else {
+        field.Cursor = utils.MinInt(len(field.Value), field.Cursor + 1)
+        if (field.Offset + field.Length) < field.Cursor {
+          field.Offset += 1
+        }
+        field.OnResult(field, UPDATE)
       }
-      field.OnResult(field, UPDATE)
     case tui.ESC_HOME, tui.ESC_PGUP:
       field.Offset = 0
       field.Cursor = 0
@@ -112,24 +116,47 @@ func (field *InputField) OnInput(c tui.Key) {
         field.OnResult(field, CANCEL)
       }
     case tui.ASC_TAB:
-      if field.Suggestion != nil && string(field.Value) != (*field.Suggestion) {
-        field.Value = []rune(*field.Suggestion)
-        field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
-        field.Cursor = len(field.Value)
-        field.UpdateSuggestion()
-        field.OnResult(field, UPDATE)
+      var suggestions []string
+
+      // Get suggestions for current value.
+      if (field.Suggester != nil) && len(field.Value) > 0 {
+        suggestions = field.Suggester(string(field.Value));
       } else {
+        suggestions = []string{}
+      }
+
+      if len(suggestions) > 0 {
+        if field.Suggestion != nil {
+          if len(suggestions) > 1 {
+            // Cycle suggestion.
+            suggestIndex := (utils.IndexOf(suggestions, *field.Suggestion) + 1) % len(suggestions)
+            field.Suggestion = &suggestions[suggestIndex];
+            field.Offset = utils.MaxInt(0, len(*field.Suggestion) - field.Length + 1)
+            field.OnResult(field, UPDATE)
+          } else {
+            field.ConfirmSuggestion()
+          }
+        } else {
+          // Nothing to suggest, just move focus.
+          moveFocus(FOCUS_FORWARD)
+        }
+      } else {
+        // Nothing to suggest, just move focus.
         moveFocus(FOCUS_FORWARD)
       }
     case tui.ASC_BACKSPACE, tui.ASC_DELETE:
       field.ControlCode(c.ControlCode)
       field.OnResult(field, UPDATE)
     case tui.ASC_ENTER:
-      field.IsActive = false
-      if field.IsModal {
-        field.OnResult(field, CONFIRM)
+      if field.Suggestion != nil {
+        field.ConfirmSuggestion()
       } else {
-        field.OnResult(field, FOCUS_FORWARD)
+        field.IsActive = false
+        if field.IsModal {
+          field.OnResult(field, CONFIRM)
+        } else {
+          field.OnResult(field, FOCUS_FORWARD)
+        }
       }
     }
   }
@@ -210,4 +237,12 @@ func (field *InputField) UpdateSuggestion() {
 
 func (field *InputField) SetCursor(window tui.Drawable) {
   window.MoveTo(field.Y, field.X + (field.Cursor - field.Offset))
+}
+
+func (field *InputField) ConfirmSuggestion() {
+  field.Value = []rune(*field.Suggestion)
+  field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
+  field.Cursor = len(field.Value)
+  field.UpdateSuggestion()
+  field.OnResult(field, UPDATE)
 }
