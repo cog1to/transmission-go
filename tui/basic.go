@@ -84,3 +84,10 @@ func WithAttributes(attrs []Attribute, block func()()) {
   }
 }
 
+func EnableMouse() {
+  fmt.Print(ESC_ENABLE_MOUSE)
+}
+
+func DisableMouse() {
+  fmt.Print(ESC_DISABLE_MOUSE)
+}

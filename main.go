@@ -46,7 +46,9 @@ func main() {
   // Basic setup.
   tui.SetRaw(true)
   tui.HideCursor()
+  tui.EnableMouse()
   defer func() {
+    tui.DisableMouse()
     tui.ShowCursor()
     tui.SetRaw(false)
     tui.Clear()

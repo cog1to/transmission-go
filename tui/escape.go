@@ -10,6 +10,8 @@ const(
   ESC_END_BOXDRAW = "\033(B"
   ESC_HIDE_CURSOR = "\033[?25l"
   ESC_SHOW_CURSOR = "\033[?25h"
+  ESC_ENABLE_MOUSE = "\033[?1000h"
+  ESC_DISABLE_MOUSE = "\033[?1000l"
 )
 
 type Attribute string

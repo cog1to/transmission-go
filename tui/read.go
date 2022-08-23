@@ -20,6 +20,7 @@ const(
   ESC_DOWN = "\033[B"
   ESC_LEFT = "\033[D"
   ESC_RIGHT = "\033[C"
+  ESC_MOUSE_PREFIX = "\033[M"
 )
 
 const(
@@ -33,17 +34,42 @@ const(
   ASC_ESC = 27
 )
 
+const(
+  BUTTON_1_PRESS = 0
+  BUTTON_2_PRESS = 1
+  BUTTON_3_PRESS = 2
+  BUTTON_RELEASE = 3
+)
+
+type Mouse struct {
+  Button int
+  Shift bool
+  Meta bool
+  Control bool
+  X int
+  Y int
+}
+
 type Key struct {
   ControlCode int
   EscapeSeq *string
+  Mouse *Mouse
   Rune *rune
 }
+
+const (
+  mouse_encoding_offset = 32
+  mouse_button_mask = 3
+  mouse_shift_mask = 4
+  mouse_meta_mask = 8
+  mouse_control_mask = 16
+)
 
 var Input chan Key
 
 func StartListening() {
   Input = make(chan Key)
-  const bufferLength = 5
+  const bufferLength = 6
 
   go func() {
     var buffer []byte = make([]byte, bufferLength)
@@ -69,25 +95,45 @@ func StartListening() {
       for success {
         // Check for escape sequence.
         if buffer[0] == 27 && (buffer[1] == 91 || buffer[1] == 79) {
-          // Find closing byte and extract everything from beginning to closing byte.
-          var closeByteIndex = -1
-          for i := 2; i < bufferLength; i++ {
-            if buffer[i] >= 0x40 && buffer[i] <= 0x7E {
-              closeByteIndex = i
-              break
-            }
-          }
+          // Mouse events.
+          if buffer[2] == 'M' {
+            sequence := string(buffer[:6])
+            // Parse the data.
+            raw_button := int(sequence[3]) - mouse_encoding_offset
+            button := raw_button & mouse_button_mask
+            shift := (raw_button & mouse_shift_mask) > 0
+            meta := (raw_button & mouse_meta_mask) > 0
+            control := (raw_button & mouse_control_mask) > 0
+            x := int(sequence[4]) - mouse_encoding_offset
+            y := int(sequence[5]) - mouse_encoding_offset
 
-          // Terminator not found, just resetting the buffer.
-          if closeByteIndex == -1 {
-            for i := 0; i < bufferLength; i++ { buffer[i] = 0 }
-            success = false
+            // Move the buffer.
+            shiftLeft(buffer, bufferLength, 6)
+            index -= 6
+
+            // Report the event.
+            Input <- Key{Mouse: &Mouse{Button: button, Shift: shift, Meta: meta, Control: control, X: x, Y: y}}
           } else {
-            sequence := string(buffer[:(closeByteIndex + 1)])
-            if (sequence == ESC_F1_S) { sequence = ESC_F1 }
-            shiftLeft(buffer, bufferLength, closeByteIndex + 1)
-            index -= (closeByteIndex + 1)
-            Input <- Key{EscapeSeq: &sequence}
+            // Find closing byte and extract everything from beginning to closing byte.
+            var closeByteIndex = -1
+            for i := 2; i < bufferLength; i++ {
+              if buffer[i] >= 0x40 && buffer[i] <= 0x7E {
+                closeByteIndex = i
+                break
+              }
+            }
+
+            // Terminator not found, just resetting the buffer.
+            if closeByteIndex == -1 {
+              for i := 0; i < bufferLength; i++ { buffer[i] = 0 }
+              success = false
+            } else {
+              sequence := string(buffer[:(closeByteIndex + 1)])
+              if (sequence == ESC_F1_S) { sequence = ESC_F1 }
+              shiftLeft(buffer, bufferLength, closeByteIndex + 1)
+              index -= (closeByteIndex + 1)
+              Input <- Key{EscapeSeq: &sequence}
+            }
           }
         // Check if we have a control code, like Tab or Enter.
         } else if buffer[0] < 32 || buffer[0] == 127 {
