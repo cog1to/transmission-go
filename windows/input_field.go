@@ -1,10 +1,10 @@
 package windows
 
 import (
-  tui "../tui"
   "fmt"
   "strings"
-  "../utils"
+  "utils"
+  "tui"
 )
 
 type Suggester = func(string)([]string)

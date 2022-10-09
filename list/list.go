@@ -1,8 +1,8 @@
 package list
 
 import (
-  tui "../tui"
-  "../utils"
+  "tui"
+  "utils"
 )
 
 /* Common item interface */

@@ -1,10 +1,10 @@
 package windows
 
 import (
-  "../transmission"
-  "../transform"
   "fmt"
   "strings"
+  "transmission"
+  "transform"
 )
 
 func formatSize(size int64) string {

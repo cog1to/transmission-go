@@ -2,10 +2,10 @@ package windows
 
 import (
   "fmt"
-  tui "../tui"
-  "../utils"
-  "../suggestions"
-  "../transmission"
+  "tui"
+  "utils"
+  "suggestions"
+  "transmission"
 )
 
 type NewTorResult int

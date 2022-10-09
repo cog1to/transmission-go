@@ -3,12 +3,12 @@ package windows
 import (
   "strings"
   "fmt"
-  tui "../tui"
-  "../transmission"
-  "../transform"
-  "../list"
-  "../worker"
-  "../utils"
+  "tui"
+  "transmission"
+  "transform"
+  "list"
+  "worker"
+  "utils"
 )
 
 type Input int

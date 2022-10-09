@@ -4,7 +4,7 @@ import (
   "os"
   "strings"
   "sort"
-  "../utils"
+  "utils"
 )
 
 func GetSuggestedDirs(input string) []string {
