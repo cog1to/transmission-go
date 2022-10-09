@@ -1,7 +1,7 @@
 package utils
 
 import (
-  tui "../tui"
+  "tui"
 )
 
 func WithColor(window tui.Drawable, front, back tui.Color, block func(tui.Drawable)) {

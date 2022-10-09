@@ -1,9 +1,9 @@
 package transform
 
 import (
-  "../transmission"
-  "../list"
   "fmt"
+  "transmission"
+  "list"
 )
 
 func GeneralizeTorrents(items []transmission.TorrentListItem) []list.Identifiable {

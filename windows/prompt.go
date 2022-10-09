@@ -3,9 +3,9 @@ package windows
 import (
   "fmt"
   "strconv"
-  tui "../tui"
-  "../utils"
-  "../suggestions"
+  "tui"
+  "utils"
+  "suggestions"
 )
 
 /* Data */

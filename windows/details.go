@@ -3,12 +3,12 @@ package windows
 import (
   "strings"
   "fmt"
-  "../transmission"
-  tui "../tui"
-  "../worker"
-  "../utils"
-  "../list"
-  "../transform"
+  "transmission"
+  "tui"
+  "worker"
+  "utils"
+  "list"
+  "transform"
 )
 
 const DETAILS_HEADER_HEIGHT = 5

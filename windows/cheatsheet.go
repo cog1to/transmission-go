@@ -1,8 +1,8 @@
 package windows
 
 import (
-  tui "../tui"
-  "../utils"
+  "tui"
+  "utils"
 )
 
 /* Data */

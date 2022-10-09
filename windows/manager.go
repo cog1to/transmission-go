@@ -1,10 +1,10 @@
 package windows
 
 import (
-  tui "../tui"
   "os"
   "os/signal"
   "syscall"
+  "tui"
 )
 
 type InputReader interface {

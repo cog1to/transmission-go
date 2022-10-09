@@ -5,10 +5,10 @@ import "C"
 
 import (
   "os/exec"
-  "./transmission"
-  "./windows"
-  tui "./tui"
   "flag"
+  "transmission"
+  "windows"
+  "tui"
 )
 
 func main() {
