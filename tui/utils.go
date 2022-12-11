@@ -1,5 +1,9 @@
 package tui
 
+import (
+  "unicode"
+)
+
 func Remove(attrs []Attribute, el Attribute) []Attribute {
     for index, element := range attrs {
     if element == el {
@@ -40,5 +44,20 @@ func SameColor(left, right *colorPair) bool {
   } else {
     return left.front == right.front && left.back == right.back
   }
+}
+
+func CellLength(data []rune) int {
+  acc := 0
+  for j := 0; j < len(data); j++ {
+    acc += 1
+    if IsWide(data[j]) {
+      acc += 1
+    }
+  }
+  return acc
+}
+
+func IsWide(symbol rune) bool {
+  return ((symbol >= 0x3040 && symbol <= 0x30FF) || unicode.Is(unicode.Unified_Ideograph, symbol))
 }
 

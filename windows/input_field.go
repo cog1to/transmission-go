@@ -38,30 +38,41 @@ const (
 func (field *InputField) Draw() {
   window := field.Parent
   runes := field.Value
+  start, end := 0, 0
 
   // Draw current value.
   if len(runes) > 0 {
     window.WithColor(tui.COLOR_4BIT_BLACK, tui.COLOR_4BIT_CYAN, func() {
-      start, end := field.Offset, utils.MinInt(field.Offset + field.Length, len(field.Value))
+      start, end = utils.RuneSlice(field.Value, field.Offset, field.Length)
       window.MovePrint(field.Y, field.X, string(runes[start:end]))
     })
   }
 
   // Draw suggestion.
-  visible := len(field.Value) - field.Offset
-  if field.IsActive && field.Length > visible && field.Suggestion != nil {
+  visibleCells := tui.CellLength(runes[start:end])
+  if field.IsActive && field.Length > visibleCells && field.Suggestion != nil {
     suggestionRunes := []rune(*field.Suggestion)
-    tail := suggestionRunes[len(field.Value):utils.MinInt(len(suggestionRunes), len(field.Value)+(field.Length-visible))]
+    tailStart, tailEnd := utils.RuneSlice(
+      suggestionRunes,
+      len(field.Value),
+      field.Length - visibleCells)
+    tail := suggestionRunes[tailStart:tailEnd]
     window.WithColor(tui.COLOR_4BIT_WHITE, tui.COLOR_4BIT_CYAN, func() {
-      window.MovePrint(field.Y, field.X + visible, string(tail))
+      window.MovePrint(
+        field.Y,
+        field.X + visibleCells,
+        string(suggestionRunes[tailStart:tailEnd]))
     })
-    visible += len(tail)
+    visibleCells += tui.CellLength(tail)
   }
 
   // Clear the rest of the field.
-  if field.Length > visible {
+  if field.Length > visibleCells {
     window.WithColor(tui.COLOR_4BIT_BLACK, tui.COLOR_4BIT_CYAN, func() {
-      window.MovePrint(field.Y, field.X + visible, strings.Repeat(" ", field.Length - visible))
+      window.MovePrint(
+        field.Y,
+        field.X + visibleCells,
+        strings.Repeat(" ", field.Length - visibleCells))
     })
   }
 }
@@ -105,7 +116,7 @@ func (field *InputField) OnInput(c tui.Key) {
       field.Cursor = 0
       field.OnResult(field, UPDATE)
     case tui.ESC_END, tui.ESC_PGDOWN:
-      field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
+      field.Offset = utils.OffsetToFit(field.Value, field.Length - 1) + 1
       field.Cursor = len(field.Value)
       field.OnResult(field, UPDATE)
     }
@@ -183,7 +194,7 @@ func (field *InputField) NewChar(c rune) {
   field.Value = trimmed
   field.Cursor = utils.MaxInt(utils.MinInt(len(trimmed), field.Cursor), 0)
   if field.Cursor == len(trimmed) {
-    field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
+    field.Offset = utils.OffsetToFit(field.Value, field.Length - 1) + 1
   }
 
   field.UpdateSuggestion()
@@ -219,7 +230,7 @@ func (field *InputField) ControlCode(code int) {
   field.Value = trimmed
   field.Cursor = utils.MaxInt(utils.MinInt(len(trimmed), field.Cursor), 0)
   if field.Cursor == len(trimmed) {
-    field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
+    field.Offset = utils.OffsetToFit(field.Value, field.Length - 1) + 1
   }
 
   field.UpdateSuggestion()
@@ -236,12 +247,14 @@ func (field *InputField) UpdateSuggestion() {
 }
 
 func (field *InputField) SetCursor(window tui.Drawable) {
-  window.MoveTo(field.Y, field.X + (field.Cursor - field.Offset))
+  window.MoveTo(
+    field.Y,
+    field.X + utils.CellsTo(field.Value, field.Offset, field.Cursor))
 }
 
 func (field *InputField) ConfirmSuggestion() {
   field.Value = []rune(*field.Suggestion)
-  field.Offset = utils.MaxInt(0, len(field.Value) - field.Length + 1)
+  field.Offset = utils.OffsetToFit(field.Value, field.Length - 1) + 1
   field.Cursor = len(field.Value)
   field.UpdateSuggestion()
   field.OnResult(field, UPDATE)

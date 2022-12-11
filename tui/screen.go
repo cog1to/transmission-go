@@ -2,7 +2,6 @@ package tui
 
 import "fmt"
 import "strings"
-import "unicode"
 
 type colorPair struct {
   front, back Color
@@ -77,7 +76,6 @@ func (screen *Screen) Redraw() {
 
   differentParams := func(left, right cell) bool {
     return left.box != right.box ||
-      left.wide != right.wide ||
       !Same(left.attributes, right.attributes) ||
       !SameColor(left.color, right.color)
   }
@@ -182,7 +180,7 @@ func (screen *Screen) Refresh() {
 
 func (screen *Screen) MovePrintf(row, col int, format string, args ...interface{}) {
   data := []rune(fmt.Sprintf(format, args...))
-  maxCol := MinInt(screen.width - col, len(data))
+  maxCol := MinInt(screen.width - col, CellLength(data))
 
   columnIndex := 0
   for j := 0; j < len(data); j++ {
@@ -202,11 +200,12 @@ func (screen *Screen) MovePrintf(row, col int, format string, args ...interface{
     // Advance to the next column.
     columnIndex = columnIndex + 1
 
-    // If symbol is a wide character, advance column index once more and mark next column as 'wide'.
+    // If symbol is a wide character, advance column index once more and mark
+    // next column as 'wide'.
     // 'Wide' columns are skipped when redrawing the buffer.
     // Currently we're only checking for ideographs and Japanese alphabet.
     // 3040-309F: hiragana, 30A0-30FF: katakana
-    if ((data[j] >= 0x3040 && data[j] <= 0x30FF) || unicode.Is(unicode.Unified_Ideograph, data[j])) {
+    if IsWide(data[j]) {
       screen.cells[row][min(col + columnIndex, maxCol - 1)].wide = true
       screen.cells[row][min(col + columnIndex, maxCol - 1)].symbol = ' '
       columnIndex = columnIndex + 1
