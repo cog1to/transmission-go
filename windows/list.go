@@ -28,6 +28,7 @@ const (
   CURSOR_DOWN
   CURSOR_PAGEDOWN
   CURSOR_PAGEUP
+  MOUSE_SELECT
   DETAILS
   DELETE
   DELETE_WITH_DATA
@@ -139,6 +140,27 @@ func (window *ListWindow) OnInput(key tui.Key) {
     case CURSOR_PAGEDOWN:
       window.state.List.Page(1)
       window.state.PendingOperation = nil
+    case MOUSE_SELECT:
+      line := (*key.Mouse).Y - 3 // -3 for header offset
+
+      if window.state.List.Cursor != line {
+        // First click moves cursor to line.
+        window.state.List.SetCursor(line)
+        window.state.PendingOperation = nil
+      } else {
+        // Second click opens the selected torrent.
+        if window.state.List.Cursor >= 0 {
+          item := window.state.List.Items[window.state.List.Cursor]
+          torrent := item.(transmission.TorrentListItem)
+          details := NewTorrentDetailsWindow(
+            window.client,
+            torrent.Id(),
+            window.obfuscated,
+            window.window,
+            window.manager)
+          window.manager.AddWindow(details)
+        }
+      }
     case SELECT:
       // Toggle selection for item under cursor.
       window.state.List.Select()
@@ -501,7 +523,14 @@ func showListCheatsheet(parent tui.Drawable, manager *WindowManager) {
 /* Utils */
 
 func control(char tui.Key) Input {
-  if char.Rune != nil {
+  if char.Mouse != nil {
+    switch (*char.Mouse).Button {
+    case tui.BUTTON_1_PRESS:
+      return MOUSE_SELECT
+    default:
+      break
+    }
+  } else if char.Rune != nil {
     switch *char.Rune {
     case 'q':
       return EXIT

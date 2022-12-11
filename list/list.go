@@ -73,6 +73,12 @@ func (drawer *List) Draw() {
   }
 }
 
+func (drawer *List) SetCursor(position int) {
+  drawer.Cursor = utils.MaxInt(
+    utils.MinInt(len(drawer.Items) - 1, drawer.Offset + position),
+    0)
+}
+
 func (drawer *List) MoveCursor(direction int) {
   if (direction < 0) {
     drawer.Cursor = utils.MaxInt(0, drawer.Cursor - 1)
