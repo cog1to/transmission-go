@@ -144,6 +144,8 @@ func (field *InputField) OnInput(c tui.Key) {
             field.Suggestion = &suggestions[suggestIndex];
             field.Offset = utils.MaxInt(0, len(*field.Suggestion) - field.Length + 1)
             field.OnResult(field, UPDATE)
+          } else if suggestions[0] == string(field.Value) {
+            moveFocus(FOCUS_FORWARD)
           } else {
             field.ConfirmSuggestion()
           }
