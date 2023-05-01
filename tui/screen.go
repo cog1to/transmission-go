@@ -77,7 +77,8 @@ func (screen *Screen) Redraw() {
   differentParams := func(left, right cell) bool {
     return left.box != right.box ||
       !Same(left.attributes, right.attributes) ||
-      !SameColor(left.color, right.color)
+      !SameColor(left.color, right.color) ||
+      left.wide != right.wide
   }
 
   // Draw.
@@ -97,8 +98,8 @@ func (screen *Screen) Redraw() {
           differentParams(newCell, bufferCell) {
         // No buffered data yet -> initialize new buffer.
         if len(symbols) == 0 {
-          lineStart = j;
-          lineEnd = j+1;
+          lineStart = j
+          lineEnd = j + 1
           symbols = []cell{newCell}
           if !newCell.wide {
             line += string(newCell.symbol)
@@ -107,8 +108,8 @@ func (screen *Screen) Redraw() {
         // -> print current line, initialize new buffer with current symbol.
         } else if differentParams(symbols[0], newCell) || j != lineEnd {
           printLine(line, symbols, i, lineStart)
-          lineStart = j;
-          lineEnd = j;
+          lineStart = j
+          lineEnd = j + 1
           symbols = []cell{newCell}
           if !newCell.wide {
             line = string(newCell.symbol)
@@ -268,6 +269,7 @@ func (screen *Screen) ClearBox(row, col, height, width int) {
       screen.cells[i][j].box = false
       screen.cells[i][j].attributes = []Attribute{}
       screen.cells[i][j].color = nil
+      screen.cells[i][j].wide = false
     }
   }
 }

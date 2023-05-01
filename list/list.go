@@ -56,9 +56,11 @@ func (drawer *List) Draw() {
     }
 
     drawer.Window.WithAttributes(attribute, func() {
-      drawer.Formatter(item, cols - drawer.MarginLeft - drawer.MarginRight, func(offset int, str string) {
-        drawer.Window.MovePrint(y, x + offset, str)
-      })
+      drawer.Formatter(
+        item,
+        cols - drawer.MarginLeft - drawer.MarginRight,
+        func(offset int, str string) { drawer.Window.MovePrint(y, x + offset, str) },
+      )
     })
 
     y += 1

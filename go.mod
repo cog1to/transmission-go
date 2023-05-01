@@ -6,6 +6,7 @@ require (
     transmission v0.0.0
     tui v0.0.0
     windows v0.0.0
+    logger v0.0.0
 )
 
 replace (
@@ -17,4 +18,5 @@ replace (
     transform => ./transform
     list => ./list
     suggestions => ./suggestions
+    logger => ./logger
 )
