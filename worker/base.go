@@ -1,6 +1,6 @@
 package worker
 
 type Worker interface {
-  Start()
-  Stop()
+	Start()
+	Stop()
 }

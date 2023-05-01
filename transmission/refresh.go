@@ -1,9 +1,9 @@
 package transmission
 
 func RefreshRequest(conn Connection) TRequest {
-  return TRequest{
-    conn,
-    "",
-    "",
-    nil}
+	return TRequest{
+		conn,
+		"",
+		"",
+		nil}
 }
