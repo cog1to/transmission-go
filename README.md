@@ -78,7 +78,7 @@ All of the actions on torrents and files work either with current selection (if 
 
 ## Building
 
-Obviously requires a working Go environment and headers/libs for ncurses. To properly support wide characters, I link against `ncursesw`
+Obviously requires a working Go environment.
 
 Building should be pretty straightforward:
 ```
