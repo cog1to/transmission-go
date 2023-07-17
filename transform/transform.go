@@ -4,13 +4,23 @@ import (
 	"fmt"
 	"transmission"
 	"list"
+	"sort"
 )
 
-func GeneralizeTorrents(items []transmission.TorrentListItem) []list.Identifiable {
+func GeneralizeTorrents(items []transmission.TorrentListItem, sorted bool) []list.Identifiable {
 	output := make([]list.Identifiable, len(items))
 	for ind, item := range items {
 		output[ind] = item
 	}
+
+	if !sorted {
+		return output
+	}
+
+	sort.Slice(output, func(l, r int) bool {
+		return output[l].(transmission.TorrentListItem).AddedDate < output[r].(transmission.TorrentListItem).AddedDate
+	})
+
 	return output
 }
 

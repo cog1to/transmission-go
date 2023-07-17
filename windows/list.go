@@ -387,7 +387,7 @@ func updateList(client *transmission.Client, state *ListWindowState) {
 	list, err := client.List()
 
 	if list != nil {
-		state.List.Items = transform.GeneralizeTorrents(*list)
+		state.List.Items = transform.GeneralizeTorrents(*list, true)
 	}
 
 	state.Error = err
