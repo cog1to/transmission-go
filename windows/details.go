@@ -166,7 +166,13 @@ func (window *TorrentDetailsWindow) Resize() {
 	window.window.SetHeight(window.window.Parent().Height())
 }
 
-func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated bool, parent tui.Drawable, manager *WindowManager) *TorrentDetailsWindow {
+func NewTorrentDetailsWindow(
+	client *transmission.Client,
+	id int,
+	obfuscated bool,
+	parent tui.Drawable,
+	manager *WindowManager,
+) *TorrentDetailsWindow {
 	rows, cols := parent.MaxYX()
 
 	window := parent.Sub(0, 0, rows, cols)
@@ -209,7 +215,13 @@ func NewTorrentDetailsWindow(client *transmission.Client, id int, obfuscated boo
 
 /* Drawing */
 
-func formatFile(file interface{}, width int, obfuscated bool, torrent *transmission.TorrentDetails, printer func(int, string)) {
+func formatFile(
+	file interface{},
+	width int,
+	obfuscated bool,
+	torrent *transmission.TorrentDetails,
+	printer func(int, string),
+) {
 	item := file.(transmission.TorrentFile)
 
 	var filename string = item.Name
@@ -218,7 +230,7 @@ func formatFile(file interface{}, width int, obfuscated bool, torrent *transmiss
 	}
 
 	// Format: # - Done - Priority - Get - Size - Name
-	maxTitleLength := width - 31
+	maxTitleLength := width - 35
 	title := []rune(filename)
 
 	var croppedTitle []rune

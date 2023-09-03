@@ -51,7 +51,11 @@ func (drawer *List) Draw() {
 		if index + drawer.Offset == drawer.Cursor {
 			attribute = append(attribute, tui.ATTR_REVERSED)
 		}
-		if utils.Contains(drawer.Selection, drawer.Items[index + drawer.Offset].Id()) {
+
+		if utils.Contains(
+			drawer.Selection,
+			drawer.Items[index + drawer.Offset].Id(),
+		) {
 			attribute = append(attribute, tui.ATTR_BOLD)
 		}
 
@@ -59,7 +63,9 @@ func (drawer *List) Draw() {
 			drawer.Formatter(
 				item,
 				cols - drawer.MarginLeft - drawer.MarginRight,
-				func(offset int, str string) { drawer.Window.MovePrint(y, x + offset, str) },
+				func(offset int, str string) {
+					drawer.Window.MovePrint(y, x + offset, str)
+				},
 			)
 		})
 
@@ -71,7 +77,11 @@ func (drawer *List) Draw() {
 
 	// Clear remaining lines if needed.
 	for index := y; index < rows - drawer.MarginBottom; index++ {
-		drawer.Window.Line(index, drawer.MarginLeft, ' ', cols - drawer.MarginLeft - drawer.MarginRight)
+		drawer.Window.Line(
+			index, drawer.MarginLeft,
+			' ',
+			cols - drawer.MarginLeft - drawer.MarginRight,
+		)
 	}
 }
 

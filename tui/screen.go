@@ -90,47 +90,53 @@ func (screen *Screen) Redraw() {
 		symbols := []cell{}
 		line := ""
 
-		for j := 0; j < screen.width; j++ {
-			newCell := screen.cells[i][j]
-			bufferCell := screen.buffer[i][j]
-
-			if newCell.symbol != bufferCell.symbol ||
-					differentParams(newCell, bufferCell) {
-				// No buffered data yet -> initialize new buffer.
-				if len(symbols) == 0 {
-					lineStart = j
-					lineEnd = j + 1
-					symbols = []cell{newCell}
-					if !newCell.wide {
-						line += string(newCell.symbol)
-					}
-				// Current symbol has different drawing params than the first one ->
-				// -> print current line, initialize new buffer with current symbol.
-				} else if differentParams(symbols[0], newCell) || j != lineEnd {
+		for j := 0; j <= screen.width; j++ {
+			if (j == screen.width) {
+				if (len(symbols) > 0) {
 					printLine(line, symbols, i, lineStart)
-					lineStart = j
-					lineEnd = j + 1
-					symbols = []cell{newCell}
-					if !newCell.wide {
-						line = string(newCell.symbol)
-					} else {
-						line = ""
-					}
-				// Current symbol matches the first one in the buffer -> just append.
-				} else {
-					lineEnd += 1
-					symbols = append(symbols, newCell)
-					if !newCell.wide {
-						line += string(newCell.symbol)
-					}
 				}
+			} else {
+				newCell := screen.cells[i][j]
+				bufferCell := screen.buffer[i][j]
+
+				if newCell.symbol != bufferCell.symbol ||
+						differentParams(newCell, bufferCell) {
+					if len(symbols) == 0 {
+						// Starting new segment.
+						lineStart = j
+						lineEnd = j + 1
+						symbols = []cell{newCell}
+						if !newCell.wide {
+							line += string(newCell.symbol)
+						}
+					} else if differentParams(newCell, bufferCell) {
+						// Cursor mode change, print and re-initialize.
+						printLine(line, symbols, i, lineStart)
+						lineStart = j
+						lineEnd = j + 1
+						symbols = []cell{newCell}
+						if !newCell.wide {
+							line = string(newCell.symbol)
+						} else {
+							line = ""
+						}
+					} else {
+						// Same params, but different symbol, append to rewrite buffer.
+						lineEnd += 1
+						symbols = append(symbols, newCell)
+						if !newCell.wide {
+							line += string(newCell.symbol)
+						}
+					}
+				} else if len(symbols) > 0 {
+					// Rewrite buffer is not empty, print and clear it.
+					printLine(line, symbols, i, lineStart)
+					symbols = []cell{}
+					line = ""
+				}
+
+				screen.buffer[i][j] = newCell
 			}
-
-			screen.buffer[i][j] = newCell
-		}
-
-		if (len(symbols) > 0) {
-			printLine(line, symbols, i, lineStart)
 		}
 	}
 
@@ -179,7 +185,11 @@ func (screen *Screen) Refresh() {
 	screen.SetWidth(size.Cols)
 }
 
-func (screen *Screen) MovePrintf(row, col int, format string, args ...interface{}) {
+func (screen *Screen) MovePrintf(
+	row, col int,
+	format string,
+	args ...interface{},
+) {
 	data := []rune(fmt.Sprintf(format, args...))
 	maxCol := MinInt(screen.width - col, CellLength(data))
 
@@ -192,7 +202,10 @@ func (screen *Screen) MovePrintf(row, col int, format string, args ...interface{
 		screen.cells[row][col + columnIndex].box = screen.box
 
 		// Attributes.
-		screen.cells[row][col + columnIndex].attributes = make([]Attribute, len(screen.attributes))
+		screen.cells[row][col + columnIndex].attributes = make(
+			[]Attribute,
+			len(screen.attributes),
+		)
 		copy(screen.cells[row][col + columnIndex].attributes, screen.attributes)
 
 		// Color.

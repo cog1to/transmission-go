@@ -209,14 +209,25 @@ func (window *ListWindow) OnInput(key tui.Key) {
 		case ADD:
 			// Open new torrent dialog.
 			window.state.PendingOperation = nil
-			dialog := NewAddTorrentWindow(window.client, window.window, window.manager, func(err error) { drawError(window.window, err) })
+			dialog := NewAddTorrentWindow(
+				window.client,
+				window.window,
+				window.manager,
+				func(err error) { drawError(window.window, err) },
+			)
 			window.manager.AddWindow(dialog)
 		case DETAILS:
 			// Go to torrent details.
 			if window.state.List.Cursor >= 0 {
 				item := window.state.List.Items[window.state.List.Cursor]
 				torrent := item.(transmission.TorrentListItem)
-				details := NewTorrentDetailsWindow(window.client, torrent.Id(), window.obfuscated, window.window, window.manager)
+				details := NewTorrentDetailsWindow(
+					window.client,
+					torrent.Id(),
+					window.obfuscated,
+					window.window,
+					window.manager,
+				)
 				window.manager.AddWindow(details)
 			}
 		}
@@ -227,7 +238,12 @@ func (window *ListWindow) OnInput(key tui.Key) {
 	}()
 }
 
-func NewListWindow(parent tui.Drawable, client *transmission.Client, obfuscated bool, manager *WindowManager) *ListWindow {
+func NewListWindow(
+	parent tui.Drawable,
+	client *transmission.Client,
+	obfuscated bool,
+	manager *WindowManager,
+) *ListWindow {
 	rows, cols := parent.MaxYX()
 	window := parent.Sub(0, 0, rows, cols)
 
@@ -276,7 +292,12 @@ func NewListWindow(parent tui.Drawable, client *transmission.Client, obfuscated 
 
 /* Drawing */
 
-func formatTorrentListItem(torrent interface{}, width int, obfuscated bool, printer func(int, string)) {
+func formatTorrentListItem(
+	torrent interface{},
+	width int,
+	obfuscated bool,
+	printer func(int, string),
+) {
 	item := torrent.(transmission.TorrentListItem)
 
 	maxTitleLength := utils.MaxInt(0, width - 72)
