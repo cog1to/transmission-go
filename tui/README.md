@@ -6,8 +6,8 @@ the terminal and turn text attributes on or off.
 
 ### Input capture
 
-`tui.StartListening` launches a gorouting that sends the input into `tui.Input`
-channel. Handle it in whatever manner fits your needs.
+`tui.StartListening` launches a goroutine that sends the input into `tui.Input`
+channel.
 
 ### Window system overview
 
