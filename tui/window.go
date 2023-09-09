@@ -195,6 +195,6 @@ func (win *Window) Erase() {
 func (win *Window) ClearBox(row, col, height, width int) {
 	if win.parent != nil {
 		absRow, absCol := win.parentCoordinates(row, col)
-		win.parent.ClearBox(absRow, absCol, win.height, win.width)
+		win.parent.ClearBox(absRow, absCol, height, width)
 	}
 }

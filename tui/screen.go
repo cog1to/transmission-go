@@ -100,7 +100,8 @@ func (screen *Screen) Redraw() {
 				bufferCell := screen.buffer[i][j]
 
 				if newCell.symbol != bufferCell.symbol ||
-						differentParams(newCell, bufferCell) {
+						differentParams(newCell, bufferCell) ||
+						(len(symbols) > 0 && differentParams(newCell, symbols[0])) {
 					if len(symbols) == 0 {
 						// Starting new segment.
 						lineStart = j
@@ -109,7 +110,8 @@ func (screen *Screen) Redraw() {
 						if !newCell.wide {
 							line += string(newCell.symbol)
 						}
-					} else if differentParams(newCell, bufferCell) {
+					} else if differentParams(newCell, bufferCell) ||
+							(differentParams(newCell, symbols[0])) {
 						// Cursor mode change, print and re-initialize.
 						printLine(line, symbols, i, lineStart)
 						lineStart = j
