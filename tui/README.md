@@ -16,10 +16,10 @@ screen. Drawables can contain other Drawables, and each child Drawable has
 a position and a size within its parent Drawable.
 
 There's a root Drawable, Screen, which is returned when you initialize the
-library with `tui.Init()`. Screen always occupies the whole terminan window.
+library with `tui.Init()`. Screen always occupies the whole terminal window.
 
 When a Drawable is told to draw some text with something like
-`drawable.MovePrintf`, it calculates a proper position within it's parent
+`drawable.MovePrintf`, it calculates a proper position within its parent
 and calls parent's `MovePrintf` at given coordinates. Its parent does the
 same thing, transforming the coordinates passed to the function into its
 parent Drawable coordinate system, and so on. Eventually we will reach the
