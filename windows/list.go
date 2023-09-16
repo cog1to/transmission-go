@@ -357,7 +357,20 @@ func drawList(window tui.Drawable, state ListWindowState) {
 	}
 
 	legendFormat := fmt.Sprintf("%%5s %%-%ds %%-6s %%-7s %%-9s %%-12s %%-6s %%-9s %%-9s", maxTitleLength)
-	window.MovePrintf(0, 0, legendFormat, "Id", "Name", "Done", "ETA", "Size", "Status", "Ratio", legendDown, legendUp)
+	window.MovePrintf(
+		0,
+		0,
+		legendFormat,
+		"Id",
+		"Name",
+		"Done",
+		"ETA",
+		"Size",
+		"Status",
+		"Ratio",
+		legendDown,
+		legendUp,
+	)
 	window.HLine(1, 0, col)
 
 	// List.

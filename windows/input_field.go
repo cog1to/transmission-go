@@ -12,6 +12,7 @@ type Suggester = func(string)([]string)
 type InputField struct {
 	X, Y, Length int
 	IsModal bool
+	EnterToConfirm bool
 	Offset int
 	Cursor int
 	IsActive bool
@@ -161,7 +162,14 @@ func (field *InputField) OnInput(c tui.Key) {
 			field.ControlCode(c.ControlCode)
 			field.OnResult(field, UPDATE)
 		case tui.ASC_ENTER:
-			if field.Suggestion != nil {
+			if field.EnterToConfirm {
+				field.IsActive = false
+				if field.IsModal {
+					field.OnResult(field, CONFIRM)
+				} else {
+					field.OnResult(field, FOCUS_FORWARD)
+				}
+			} else if field.Suggestion != nil {
 				field.ConfirmSuggestion()
 			} else {
 				field.IsActive = false

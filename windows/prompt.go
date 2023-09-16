@@ -99,9 +99,11 @@ func NewPrompt(
 	limit int,
 	charset string,
 	initial string,
+	enterToConfirm bool,
 	completion func(string),
 	cancel func(),
-	suggester Suggester) *Prompt {
+	suggester Suggester,
+) *Prompt {
 	height, width, y, x := MeasurePrompt(parent, title, limit)
 	prompt := parent.Sub(y, x, height, width)
 
@@ -127,22 +129,23 @@ func NewPrompt(
 		title,
 		limit,
 		&InputField{
-			2 + len(title + " "),
-			1,
-			inputLength,
-			true,
-			utils.MaxInt(0, length - (limit + 1)),
-			length,
-			true,
-			initialRunes,
-			limit,
-			charset,
-			suggester,
-			nil,
-			nil,
-			prompt,
-			onResult},
-		make(chan InputFieldResult)}
+			X: 2 + len(title + " "), Y: 1, Length: inputLength,
+			IsModal: true,
+			EnterToConfirm: enterToConfirm,
+			Offset: utils.MaxInt(0, length - (limit + 1)),
+			Cursor: length,
+			IsActive: true,
+			Value: initialRunes,
+			Limit: limit,
+			Charset: charset,
+			Suggester: suggester,
+			Suggestion: nil,
+			Manager: nil,
+			Parent: prompt,
+			OnResult: onResult,
+		},
+		make(chan InputFieldResult),
+	}
 
 	state.Field.UpdateSuggestion()
 
@@ -150,12 +153,21 @@ func NewPrompt(
 		parent,
 		prompt,
 		manager,
-		state}
+		state,
+	}
 }
 
 /* Public helpers */
 
-func IntPrompt(parent tui.Drawable, manager *WindowManager, title string, value int, flag bool, onFinish func(int), onError func(error)) {
+func IntPrompt(
+	parent tui.Drawable,
+	manager *WindowManager,
+	title string,
+	value int,
+	flag bool,
+	onFinish func(int),
+	onError func(error),
+) {
 	var initialValue string
 	if flag && value > 0 {
 		initialValue = fmt.Sprintf("%d", value)
@@ -182,6 +194,7 @@ func IntPrompt(parent tui.Drawable, manager *WindowManager, title string, value 
 		6,
 		"0123456789",
 		initialValue,
+		true,
 		func(output string) {
 			manager.RemoveWindow(prompt)
 			handleResult(output)
@@ -193,7 +206,14 @@ func IntPrompt(parent tui.Drawable, manager *WindowManager, title string, value 
 	manager.AddWindow(prompt)
 }
 
-func PathPrompt(parent tui.Drawable, manager *WindowManager, title string, initial string, onFinish func(string), onError func(error)) {
+func PathPrompt(
+	parent tui.Drawable,
+	manager *WindowManager,
+	title string,
+	initial string,
+	onFinish func(string),
+	onError func(error),
+) {
 	var initialValue = initial
 	if initialValue == "" {
 		initialValue = "~"
@@ -207,6 +227,7 @@ func PathPrompt(parent tui.Drawable, manager *WindowManager, title string, initi
 		0,
 		"",
 		initialValue,
+		true,
 		func(output string) {
 			manager.RemoveWindow(prompt)
 			onFinish(output)

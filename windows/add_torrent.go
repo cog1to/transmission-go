@@ -219,8 +219,33 @@ func NewAddTorrentWindow(client *transmission.Client, parent tui.Drawable, manag
 
 	// Window state
 	state := &NewTorrentWindowState{
-		UrlField: &InputField{ 2, 4, width - 4, false, 0, 0, true, []rune{}, 0, "", suggestions.GetSuggestedFiles, nil, manager, window, nil },
-		PathField: &InputField{ 2, 6, width - 4, false, 0, 0, false, []rune{}, 0, "", suggestions.GetSuggestedDirs, nil, manager, window, nil }}
+		UrlField: &InputField{
+			X: 2, Y: 4, Length: width - 4,
+			IsModal: false,
+			EnterToConfirm: false,
+			IsActive: true,
+			Value: []rune{},
+			Charset: "",
+			Suggester: suggestions.GetSuggestedFiles,
+			Suggestion: nil,
+			Manager: manager,
+			Parent: window,
+			OnResult: nil,
+		},
+		PathField: &InputField{
+			X: 2, Y: 6, Length: width - 4,
+			IsModal: false,
+			EnterToConfirm: false,
+			IsActive: false,
+			Value: []rune{},
+			Charset: "",
+			Suggester: suggestions.GetSuggestedDirs,
+			Suggestion: nil,
+			Manager: manager,
+			Parent: window,
+			OnResult: nil,
+		},
+	}
 
 	dialog := &AddTorrentWindow{
 		client,
