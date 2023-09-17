@@ -8,7 +8,11 @@ func DetailsRequest(id int, fields []string) RequestBuilder {
 			conn,
 			"torrent-get",
 			token,
-			map[string]interface{} { "ids": []int{ id }, "fields": fields }}.ToRequest()
+			map[string]interface{} {
+				"ids": []int{ id },
+				"fields": fields,
+			},
+		}.ToRequest()
 	}
 }
 

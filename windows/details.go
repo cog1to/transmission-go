@@ -14,6 +14,14 @@ import (
 const DETAILS_HEADER_HEIGHT = 5
 const DETAILS_FOOTER_HEIGHT = 2
 
+type Message struct {
+	text string
+}
+
+func (e *Message) Error() string {
+	return e.text
+}
+
 type TorrentDetailsState struct {
 	Torrent *transmission.TorrentDetails
 	List list.List
@@ -68,7 +76,13 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 				files := transform.ToFileList(items)
 				ids, priority := transform.IdsAndNextPriority(files)
 				go func() {
-					updatePriority(window.client, state.Torrent.Id, ids, priority, state)
+					updatePriority(
+						window.client,
+						state.Torrent.Id,
+						ids,
+						priority,
+						state,
+					)
 					window.manager.Draw <- true
 				}()
 			}
@@ -79,7 +93,13 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 				files := transform.ToFileList(items)
 				ids, wanted := transform.IdsAndNextWanted(files)
 				go func() {
-					updateWanted(window.client, state.Torrent.Id, ids, wanted, state)
+					updateWanted(
+						window.client,
+						state.Torrent.Id,
+						ids,
+						wanted,
+						state,
+					)
 					window.manager.Draw <- true
 				}()
 			}
@@ -93,7 +113,12 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 				state.Torrent.DownloadLimited,
 				func(limit int) {
 					go func() {
-						setDownloadLimit(window.client, state.Torrent.Id, limit, window.state)
+						setDownloadLimit(
+							window.client,
+							state.Torrent.Id,
+							limit,
+							window.state,
+						)
 						window.manager.Draw <- true
 					}()
 				},
@@ -110,7 +135,12 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 				state.Torrent.UploadLimited,
 				func(limit int) {
 					go func() {
-						setUploadLimit(window.client, state.Torrent.Id, limit, window.state)
+						setUploadLimit(
+							window.client,
+							state.Torrent.Id,
+							limit,
+							window.state,
+						)
 						window.manager.Draw <- true
 					}()
 				},
@@ -126,13 +156,33 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 				"",
 				func(location string) {
 					go func() {
-						setLocation(window.client, state.Torrent.Id, location, window.state)
+						setLocation(
+							window.client,
+							state.Torrent.Id,
+							location,
+							window.state,
+						)
 						window.manager.Draw <- true
 					}()
 				},
 				func(err error) {
 					state.Error = err
-				})
+				},
+			)
+		case 'o':
+			cursor := state.List.Cursor
+			if cursor >= 0 {
+				file := state.List.Items[cursor].(transmission.TorrentFile)
+				path := fmt.Sprintf(
+					"%s%s",
+					state.Torrent.DownloadDir,
+					file.Name,
+				)
+				_, err := utils.Open(path)
+				if err != nil {
+					state.Error = err
+				}
+			}
 		}
 	} else if key.EscapeSeq != nil {
 		switch *key.EscapeSeq {
@@ -179,7 +229,11 @@ func NewTorrentDetailsWindow(
 
 	var state *TorrentDetailsState
 
-	formatter := func(file interface{}, width int, printer func(int, string)) {
+	formatter := func(
+		file interface{},
+		width int,
+		printer func(int, string),
+	) {
 		formatFile(file, width, obfuscated, state.Torrent, printer)
 	}
 
@@ -194,7 +248,8 @@ func NewTorrentDetailsWindow(
 			0,
 			[]int{},
 			0,
-			[]list.Identifiable{}},
+			[]list.Identifiable{},
+		},
 		Obfuscated: obfuscated}
 
 	workers := worker.WorkerList{
@@ -203,7 +258,9 @@ func NewTorrentDetailsWindow(
 			func() {
 				getDetails(client, id, state)
 				manager.Draw <- true
-			})}
+			},
+		),
+	}
 
 	return &TorrentDetailsWindow{
 		client,
@@ -245,12 +302,16 @@ func formatFile(
 	format := "%3d %-6s %-8s %-3s %-9s %s%s"
 	details := fmt.Sprintf(format,
 		item.Number,
-		fmt.Sprintf("%3.0f%%", (float32(item.BytesCompleted)/float32(item.Length))*100.0),
+		fmt.Sprintf(
+			"%3.0f%%",
+			(float32(item.BytesCompleted)/float32(item.Length))*100.0,
+		),
 		formatPriority(item.Priority),
 		formatFlag(item.Wanted),
 		formatSize(item.Length),
 		string(croppedTitle),
-		strings.Repeat(" ", spacesLength))
+		strings.Repeat(" ", spacesLength),
+	)
 	printer(0, details)
 }
 
@@ -265,7 +326,10 @@ func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
 		// Name.
 		tui.WithAttribute(tui.ATTR_BOLD, func() {
 			if state.Obfuscated {
-				window.MovePrint(0, 0, utils.RandomString(len([]rune(item.Name))))
+				window.MovePrint(
+					0, 0,
+					utils.RandomString(len([]rune(item.Name))),
+				)
 			} else {
 				window.MovePrint(0, 0, item.Name)
 			}
@@ -289,21 +353,36 @@ func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
 		ratio := utils.MaxFloat32(item.Ratio, 0)
 		status := formatStatus(item.Status)
 
-		dataString := fmt.Sprintf("Size: %s | Done: %s | Ratio: %.3f | Status: %s", size, done, ratio, status)
+		dataString := fmt.Sprintf(
+			"Size: %s | Done: %s | Ratio: %.3f | Status: %s",
+			size, done, ratio, status,
+		)
 		window.MovePrint(2, 0, dataString)
 
 		// Speed values.
 		downSpeed := formatSpeed(item.DownloadSpeed)
-		downLimit := formatSpeedWithFlag(float32(item.DownloadLimit * 1024), item.DownloadLimited)
+		downLimit := formatSpeedWithFlag(
+			float32(item.DownloadLimit * 1024),
+			item.DownloadLimited,
+		)
 		upSpeed := formatSpeed(item.UploadSpeed)
-		upLimit := formatSpeedWithFlag(float32(item.UploadLimit * 1024), item.UploadLimited)
+		upLimit := formatSpeedWithFlag(
+			float32(item.UploadLimit * 1024),
+			item.UploadLimited,
+		)
 
-		speedString := fmt.Sprintf("Down: %s (Limit: %s) | Up: %s (Limit: %s)",
+		speedString := fmt.Sprintf(
+			"Down: %s (Limit: %s) | Up: %s (Limit: %s)",
 			downSpeed,
 			downLimit,
 			upSpeed,
-			upLimit)
-		window.MovePrintf(3, 0, "%s%s", speedString, strings.Repeat(" ", col - len(speedString)))
+			upLimit,
+		)
+		window.MovePrintf(
+			3, 0,
+			"%s%s",
+			speedString, strings.Repeat(" ", col - len(speedString)),
+		)
 
 		// Separator.
 		window.HLine(4, 0, col)
@@ -311,7 +390,10 @@ func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
 
 	// Legend: # - Done - Priority - Get - Size - Name
 	legendFormat := "%3s %-6s %-8s %-3s %-9s %s"
-	window.MovePrintf(DETAILS_HEADER_HEIGHT, 0, legendFormat, "#", "Done", "Priority", "Get", "Size", "Name")
+	window.MovePrintf(
+		DETAILS_HEADER_HEIGHT, 0,
+		legendFormat, "#", "Done", "Priority", "Get", "Size", "Name",
+	)
 	window.HLine(DETAILS_HEADER_HEIGHT + 1, 0, col)
 
 	// Draw List.
@@ -333,7 +415,9 @@ func showDetailsCheatsheet(parent tui.Drawable, manager *WindowManager) {
 		HelpItem{ "p", "Change priority of selected file(s)" },
 		HelpItem{ "L", "Set torrent's download speed limit" },
 		HelpItem{ "U", "Set torrent's upload speed limit" },
-		HelpItem{ "m", "Move torrent to a new location" }}
+		HelpItem{ "m", "Move torrent to a new location" },
+		HelpItem{ "o", "Open the file under cursor with OS's default app" },
+	}
 
 	cheatsheet := NewCheatsheet(parent, items, manager)
 	manager.AddWindow(cheatsheet)
@@ -341,7 +425,11 @@ func showDetailsCheatsheet(parent tui.Drawable, manager *WindowManager) {
 
 /* Network */
 
-func getDetails(client *transmission.Client, id int, state *TorrentDetailsState) {
+func getDetails(
+	client *transmission.Client,
+	id int,
+	state *TorrentDetailsState,
+) {
 	torrent, e := client.TorrentDetails(id)
 
 	state.Error = e
@@ -353,7 +441,13 @@ func getDetails(client *transmission.Client, id int, state *TorrentDetailsState)
 	}
 }
 
-func updatePriority(client *transmission.Client, id int, ids []int, priority int, state *TorrentDetailsState) {
+func updatePriority(
+	client *transmission.Client,
+	id int,
+	ids []int,
+	priority int,
+	state *TorrentDetailsState,
+) {
 	e := client.SetPriority(id, ids, priority)
 
 	state.Error = e
@@ -362,7 +456,13 @@ func updatePriority(client *transmission.Client, id int, ids []int, priority int
 	}
 }
 
-func updateWanted(client *transmission.Client, id int, ids []int, wanted bool, state *TorrentDetailsState) {
+func updateWanted(
+	client *transmission.Client,
+	id int,
+	ids []int,
+	wanted bool,
+	state *TorrentDetailsState,
+) {
 	e := client.SetWanted(id, ids, wanted)
 
 	state.Error = e
@@ -371,7 +471,12 @@ func updateWanted(client *transmission.Client, id int, ids []int, wanted bool, s
 	}
 }
 
-func setDownloadLimit(client *transmission.Client, id int, limit int, state *TorrentDetailsState) {
+func setDownloadLimit(
+	client *transmission.Client,
+	id int,
+	limit int,
+	state *TorrentDetailsState,
+) {
 	e := client.SetDownloadLimit(id, limit)
 
 	state.Error = e
@@ -380,7 +485,12 @@ func setDownloadLimit(client *transmission.Client, id int, limit int, state *Tor
 	}
 }
 
-func setUploadLimit(client *transmission.Client, id int, limit int, state *TorrentDetailsState) {
+func setUploadLimit(
+	client *transmission.Client,
+	id int,
+	limit int,
+	state *TorrentDetailsState,
+) {
 	e := client.SetUploadLimit(id, limit)
 
 	state.Error = e
@@ -389,7 +499,12 @@ func setUploadLimit(client *transmission.Client, id int, limit int, state *Torre
 	}
 }
 
-func setLocation(client *transmission.Client, id int, location string, state *TorrentDetailsState) {
+func setLocation(
+	client *transmission.Client,
+	id int,
+	location string,
+	state *TorrentDetailsState,
+) {
 	e := client.SetLocation([]int{ id }, utils.ExpandHome(location))
 
 	state.Error = e

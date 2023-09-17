@@ -41,6 +41,7 @@ const (
 	MOVE
 	SELECT_ALL
 	INVERT_SELECT
+	OPEN
 	UNKNOWN
 )
 
@@ -195,7 +196,9 @@ func (window *ListWindow) OnInput(key tui.Key) {
 				"Global upload limit (KB):",
 				window.state.Settings.UploadSpeedLimit,
 				window.state.Settings.UploadSpeedLimitEnabled,
-				func(limit int) { go setGlobalUploadLimit(window.client, limit, window.state) },
+				func(limit int) {
+					go setGlobalUploadLimit(window.client, limit, window.state)
+				},
 				func(err error) { window.state.Error = err })
 		case DOWN_LIMIT:
 			IntPrompt(
@@ -204,7 +207,9 @@ func (window *ListWindow) OnInput(key tui.Key) {
 				"Global download limit (KB):",
 				window.state.Settings.DownloadSpeedLimit,
 				window.state.Settings.DownloadSpeedLimitEnabled,
-				func(limit int) { go setGlobalDownloadLimit(window.client, limit, window.state) },
+				func(limit int) {
+					go setGlobalDownloadLimit(window.client, limit, window.state)
+				},
 				func(err error) { window.state.Error = err })
 		case ADD:
 			// Open new torrent dialog.
@@ -230,6 +235,21 @@ func (window *ListWindow) OnInput(key tui.Key) {
 				)
 				window.manager.AddWindow(details)
 			}
+		case OPEN:
+			// Open torrent location.
+			if window.state.List.Cursor >= 0 {
+				item := window.state.List.Items[window.state.List.Cursor]
+				torrent := item.(transmission.TorrentListItem)
+				downloadDir := fmt.Sprintf(
+					"%s/%s",
+					torrent.DownloadDir,
+					torrent.Name,
+				)
+    		_, err := utils.Open(downloadDir)
+				if err != nil {
+					window.state.Error = err
+				}
+			}
 		}
 
 		go func() {
@@ -248,7 +268,11 @@ func NewListWindow(
 	window := parent.Sub(0, 0, rows, cols)
 
 	// Item formatter.
-	formatter := func(torrent interface{}, width int, printer func(int, string)) {
+	formatter := func(
+		torrent interface{},
+		width int,
+		printer func(int, string),
+	) {
 		formatTorrentListItem(torrent, width, obfuscated, printer)
 	}
 
@@ -526,7 +550,9 @@ func showListCheatsheet(parent tui.Drawable, manager *WindowManager) {
 		HelpItem{ "p", "Start/stop selected torrent(s)" },
 		HelpItem{ "L", "Set global download speed limit" },
 		HelpItem{ "U", "Set global upload speed limit" },
-		HelpItem{ "m", "Move selected torrent(s) to a new location" }}
+		HelpItem{ "m", "Move selected torrent(s) to a new location" },
+		HelpItem{ "o", "Open the torrent using OS's default app" },
+	}
 
 	cheatsheet := NewCheatsheet(parent, items, manager)
 	manager.AddWindow(cheatsheet)
@@ -569,6 +595,8 @@ func control(char tui.Key) Input {
 			return SELECT_ALL
 		case 'i':
 			return INVERT_SELECT
+		case 'o':
+			return OPEN
 		}
 	} else if char.EscapeSeq != nil {
 		switch *char.EscapeSeq {
