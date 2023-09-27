@@ -137,13 +137,20 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
 		internalTorrent.UploadLimit,
 		internalTorrent.UploadLimited,
 		internalTorrent.DownloadDir,
-		files}
+		files,
+	}
 
 	return &torrent, nil
 }
 
-func (client *Client) SetPriority(id int, files []int, priority int) error {
-	return client.performWithoutData(SetPriorityRequest(id, files, priority))
+func (client *Client) SetPriority(
+	id int,
+	files []int,
+	priority int,
+) error {
+	return client.performWithoutData(
+		SetPriorityRequest(id, files, priority),
+	)
 }
 
 func (client *Client) SetWanted(id int, files []int, wanted bool) error {

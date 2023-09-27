@@ -7,7 +7,10 @@ import (
 	"sort"
 )
 
-func GeneralizeTorrents(items []transmission.TorrentListItem, sorted bool) []list.Identifiable {
+func GeneralizeTorrents(
+	items []transmission.TorrentListItem,
+	sorted bool,
+) []list.Identifiable {
 	output := make([]list.Identifiable, len(items))
 	for ind, item := range items {
 		output[ind] = item

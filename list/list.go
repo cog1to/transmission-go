@@ -21,7 +21,11 @@ func MapIds(slice []Identifiable) []int {
 
 /* List */
 
-type Formatter = func(item interface{}, width int, printer func(int, string))
+type Formatter = func(
+	item interface{},
+	width int,
+	printer func(int, string),
+)
 
 type List struct {
 	// Public
