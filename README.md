@@ -58,6 +58,7 @@ All of the actions on torrents and files work either with current selection (if 
 | L     | Set global download speed limit |
 | U     | Set global upload speed limit |
 | m     | Move selected torrent(s) to a new location |
+| o     | Open torrent's location using OS default |
 
 ##### Details screen
 
@@ -75,6 +76,7 @@ All of the actions on torrents and files work either with current selection (if 
 | L     | Set torrent's download speed limit |
 | U     | Set torrent's upload speed limit |
 | m     | Move torrent to a new location |
+| o     | Open file under cursor using OS default |
 
 ## Building
 
