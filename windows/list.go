@@ -245,7 +245,7 @@ func (window *ListWindow) OnInput(key tui.Key) {
 					torrent.DownloadDir,
 					torrent.Name,
 				)
-    		_, err := utils.Open(downloadDir)
+				_, err := utils.Open(downloadDir)
 				if err != nil {
 					window.state.Error = err
 				}
@@ -343,7 +343,7 @@ func formatTorrentListItem(
 	// %Done. Handle unknown state.
 	var done string
 	if item.SizeWhenDone == 0 {
-		done = "	0%"
+		done = "  0%"
 	} else {
 		done = fmt.Sprintf("%3.0f%%",
 			(float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
