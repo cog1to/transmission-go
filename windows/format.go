@@ -98,8 +98,12 @@ func formatTime(time int32, done bool) string {
 		}
 		if time < (60 * 60 * 24) {
 			return fmt.Sprintf("%0.1fhr", float32(time) / 3600.0)
-		} else {
+		} else if time < (60 * 60 * 24 * 366) {
 			return fmt.Sprintf("%0.1fd", float32(time) / 86400.0)
+		} else if (time < 60 * 60 * 24 * 366 * 10) {
+			return fmt.Sprintf("%0.1fy", float32(time) / 31622400.0)
+		} else {
+			return ">10y"
 		}
 	}
 }
