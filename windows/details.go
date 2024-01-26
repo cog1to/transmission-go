@@ -102,6 +102,11 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 					)
 					window.manager.Draw <- true
 				}()
+
+				// If there's no custom selection, move current cursor down.
+				if len(items) == 1 && len(state.List.Selection) == 0 {
+					state.List.MoveCursor(1)
+				}
 			}
 		case 'L':
 			// Change download limit.
