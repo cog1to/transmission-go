@@ -18,7 +18,12 @@ func Termsize() Winsize {
 		ws_row: 0,
 	}
 
-	syscall.Syscall(syscall.SYS_IOCTL, uintptr(syscall.Stdin), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&ts)))
+	syscall.Syscall(
+		syscall.SYS_IOCTL,
+		uintptr(syscall.Stdin),
+		uintptr(syscall.TIOCGWINSZ),
+		uintptr(unsafe.Pointer(&ts)),
+	)
 	return Winsize{ int(ts.ws_row), int(ts.ws_col) }
 }
 
