@@ -140,10 +140,21 @@ func (field *InputField) OnInput(c tui.Key) {
 			if len(suggestions) > 0 {
 				if field.Suggestion != nil {
 					if len(suggestions) > 1 {
-						// Cycle suggestion.
-						suggestIndex := (utils.IndexOf(suggestions, *field.Suggestion) + 1) % len(suggestions)
-						field.Suggestion = &suggestions[suggestIndex];
-						field.Offset = utils.MaxInt(0, len(*field.Suggestion) - field.Length + 1)
+						// Check if all suggestions start with common prefix.
+						prefix := commonPrefix(suggestions)
+						prefixStr := string(prefix)
+						if prefixStr != "" && prefixStr != string(field.Value) {
+							field.Suggestion = &suggestions[0]
+							field.Value = prefix
+							field.Cursor = len(field.Value)
+						} else {
+							// Cycle suggestion.
+							suggestIndex := (utils.IndexOf(suggestions, *field.Suggestion) + 1) % len(suggestions)
+							field.Suggestion = &suggestions[suggestIndex];
+						}
+						field.Offset = utils.MaxInt(
+							0, len(*field.Suggestion) - field.Length + 1,
+						)
 						field.OnResult(field, UPDATE)
 					} else if suggestions[0] == string(field.Value) {
 						moveFocus(FOCUS_FORWARD)
@@ -268,4 +279,25 @@ func (field *InputField) ConfirmSuggestion() {
 	field.Cursor = len(field.Value)
 	field.UpdateSuggestion()
 	field.OnResult(field, UPDATE)
+}
+
+func commonPrefix(list []string) []rune {
+	if len(list) < 2 {
+		return nil
+	}
+
+	runeList := make([][]rune, len(list))
+	for i, _ := range list {
+		runeList[i] = []rune(list[i])
+	}
+
+	for idx, c := range runeList[0] {
+		for _, s := range runeList[1:] {
+			if s[idx] != c {
+				return runeList[0][0:idx]
+			}
+		}
+	}
+
+	return nil
 }
