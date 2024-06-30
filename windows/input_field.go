@@ -152,8 +152,9 @@ func (field *InputField) OnInput(c tui.Key) {
 							suggestIndex := (utils.IndexOf(suggestions, *field.Suggestion) + 1) % len(suggestions)
 							field.Suggestion = &suggestions[suggestIndex];
 						}
-						field.Offset = utils.MaxInt(
-							0, len(*field.Suggestion) - field.Length + 1,
+						field.Offset = utils.MinInt(
+							utils.MaxInt(0, len(*field.Suggestion) - field.Length + 1),
+							len(field.Value),
 						)
 						field.OnResult(field, UPDATE)
 					} else if suggestions[0] == string(field.Value) {
