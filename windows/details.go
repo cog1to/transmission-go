@@ -183,10 +183,13 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 					state.Torrent.DownloadDir,
 					file.Name,
 				)
-				_, err := utils.Open(path)
-				if err != nil {
-					state.Error = err
-				}
+
+				go func(filepath string) {
+					_, err := utils.Open(filepath)
+					if err != nil {
+						state.Error = err
+					}
+				}(path)
 			}
 		}
 	} else if key.EscapeSeq != nil {

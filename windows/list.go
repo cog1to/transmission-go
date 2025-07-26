@@ -245,10 +245,13 @@ func (window *ListWindow) OnInput(key tui.Key) {
 					torrent.DownloadDir,
 					torrent.Name,
 				)
-				_, err := utils.Open(downloadDir)
-				if err != nil {
-					window.state.Error = err
-				}
+
+				go func(filepath string) {
+					_, err := utils.Open(filepath)
+					if err != nil {
+						window.state.Error = err
+					}
+				}(downloadDir)
 			}
 		}
 
