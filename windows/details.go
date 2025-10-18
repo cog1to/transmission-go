@@ -357,12 +357,21 @@ func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
 
 		// %Done. Handle unknown torrent size.
 		var done string
-		if item.SizeWhenDone == 0 {
+		if item.PercentDone != nil {
+			done = fmt.Sprintf("%3.0f%%", (*item.PercentDone)*100.0)
+		} else if item.SizeWhenDone == 0 {
 			done = fmt.Sprintf("%3.0f%%", 0.0)
 		} else {
 			done = fmt.Sprintf(
 				"%3.0f%%",
 				(float32(item.SizeWhenDone - item.LeftUntilDone)/float32(item.SizeWhenDone))*100.0)
+		}
+
+		var total string
+		if item.PercentComplete != nil {
+			total = fmt.Sprintf("%3.0f%%", (*item.PercentComplete)*100.0)
+		} else {
+			total = fmt.Sprintf("----")
 		}
 
 		// Rest of the data.
@@ -371,8 +380,8 @@ func drawDetails(window tui.Drawable, state *TorrentDetailsState) {
 		status := formatStatus(item.Status)
 
 		dataString := fmt.Sprintf(
-			"Size: %s | Done: %s | Ratio: %.3f | Status: %s",
-			size, done, ratio, status,
+			"Size: %s | Done: %s | Total: %s | Ratio: %.3f | Status: %s",
+			size, done, total, ratio, status,
 		)
 		window.MovePrint(2, 0, dataString)
 

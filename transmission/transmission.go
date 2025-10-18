@@ -96,7 +96,10 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
 		"uploadLimited",
 		"files",
 		"downloadDir",
-		"fileStats"}
+		"fileStats",
+		"percentDone",
+		"percentComplete",
+	}
 
 	var response TorrentDetailsResponse
 	err := client.performJson(DetailsRequest(id, fields), &response)
@@ -141,6 +144,8 @@ func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
 		internalTorrent.UploadLimit,
 		internalTorrent.UploadLimited,
 		internalTorrent.DownloadDir,
+		internalTorrent.PercentComplete,
+		internalTorrent.PercentDone,
 		files,
 	}
 

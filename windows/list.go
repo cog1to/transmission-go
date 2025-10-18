@@ -357,7 +357,9 @@ func formatTorrentListItem(
 
 	// %Done. Handle unknown state.
 	var done string
-	if item.SizeWhenDone == 0 {
+	if item.PercentDone != nil {
+		done = fmt.Sprintf("%3.0f%%", (*item.PercentDone)*100.0)
+	} else if item.SizeWhenDone == 0 {
 		done = "  0%"
 	} else {
 		done = fmt.Sprintf("%3.0f%%",

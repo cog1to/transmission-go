@@ -52,6 +52,8 @@ type TorrentDetailsInternal struct {
 	UploadLimit int												`json:"uploadLimit"`
 	UploadLimited bool										`json:"uploadLimited"`
 	DownloadDir string										`json:"downloadDir"`
+	PercentComplete *float32							`json:"percentComplete"`
+	PercentDone *float32									`json:"percentDone"`
 	Files *[]TorrentFileInternal					`json:"files"`
 	FileStats *[]TorrentFileStatsInternal `json:"fileStats"`
 }
@@ -71,6 +73,8 @@ type TorrentDetails struct {
 	UploadLimit int
 	UploadLimited bool
 	DownloadDir string
+	PercentComplete *float32
+	PercentDone *float32
 	Files []TorrentFile
 }
 
