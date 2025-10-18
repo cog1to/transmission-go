@@ -42,6 +42,7 @@ const (
 	SELECT_ALL
 	INVERT_SELECT
 	OPEN
+	VERIFY
 	UNKNOWN
 )
 
@@ -127,6 +128,17 @@ func (window *ListWindow) OnInput(key tui.Key) {
 						command,
 						transform.ToTorrentList(items)}
 				}
+			}
+		case VERIFY:
+			// Verify selected torrents.
+			items := window.state.List.GetSelection()
+			if len(items) > 0 {
+				torrents := transform.ToTorrentList(items)
+				op := ListOperation{
+					command,
+					torrents,
+				}
+				handleOperation(window.client, op, window.state)
 			}
 		case CURSOR_UP:
 			window.state.List.MoveCursor(-1)
@@ -516,6 +528,8 @@ func handleOperation(client *transmission.Client, operation interface{}, state *
 			e = client.Delete(ids, false)
 		case DELETE_WITH_DATA:
 			e = client.Delete(ids, true)
+		case VERIFY:
+			e = client.Verify(ids)
 		default:
 			e = fmt.Errorf("Unknown list operation type")
 		}
@@ -555,6 +569,7 @@ func showListCheatsheet(parent tui.Drawable, manager *WindowManager) {
 		HelpItem{ "U", "Set global upload speed limit" },
 		HelpItem{ "m", "Move selected torrent(s) to a new location" },
 		HelpItem{ "o", "Open the torrent using OS's default app" },
+		HelpItem{ "v", "Verify selected torrents" },
 	}
 
 	cheatsheet := NewCheatsheet(parent, items, manager)
@@ -600,6 +615,8 @@ func control(char tui.Key) Input {
 			return INVERT_SELECT
 		case 'o':
 			return OPEN
+		case 'v':
+			return VERIFY
 		}
 	} else if char.EscapeSeq != nil {
 		switch *char.EscapeSeq {

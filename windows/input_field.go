@@ -53,17 +53,20 @@ func (field *InputField) Draw() {
 	visibleCells := tui.CellLength(runes[start:end])
 	if field.IsActive && field.Length > visibleCells && field.Suggestion != nil {
 		suggestionRunes := []rune(*field.Suggestion)
+
 		tailStart, tailEnd := utils.RuneSlice(
 			suggestionRunes,
 			len(field.Value),
 			field.Length - visibleCells)
 		tail := suggestionRunes[tailStart:tailEnd]
+
 		window.WithColor(tui.COLOR_4BIT_WHITE, tui.COLOR_4BIT_CYAN, func() {
 			window.MovePrint(
 				field.Y,
 				field.X + visibleCells,
 				string(suggestionRunes[tailStart:tailEnd]))
 		})
+
 		visibleCells += tui.CellLength(tail)
 	}
 

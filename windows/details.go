@@ -191,6 +191,15 @@ func (window *TorrentDetailsWindow) OnInput(key tui.Key) {
 					}
 				}(path)
 			}
+		case 'v':
+			go func() {
+				verify(
+					window.client,
+					state.Torrent.Id,
+					window.state,
+				)
+				window.manager.Draw <- true
+			}()
 		}
 	} else if key.EscapeSeq != nil {
 		switch *key.EscapeSeq {
@@ -515,6 +524,18 @@ func setLocation(
 ) {
 	e := client.SetLocation([]int{ id }, utils.ExpandHome(location))
 
+	state.Error = e
+	if e == nil {
+		getDetails(client, id, state)
+	}
+}
+
+func verify(
+	client *transmission.Client,
+	id int,
+	state *TorrentDetailsState,
+) {
+	e := client.Verify([]int{ id })
 	state.Error = e
 	if e == nil {
 		getDetails(client, id, state)

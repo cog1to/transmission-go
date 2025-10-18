@@ -53,7 +53,6 @@ func (client *Client) List() (*[]TorrentListItem, error) {
 
 func (client *Client) Delete(ids []int, withData bool) error {
 	_, err := client.perform(DeleteRequest(ids, withData))
-
 	return err
 }
 
@@ -71,6 +70,11 @@ func (client *Client) AddTorrent(url string, path string) (error) {
 	} else {
 		return nil
 	}
+}
+
+func (client *Client) Verify(ids []int) error {
+	_, err := client.perform(VerifyRequest(ids))
+	return err
 }
 
 func (client *Client) TorrentDetails(id int) (*TorrentDetails, error) {
