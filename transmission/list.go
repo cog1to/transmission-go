@@ -22,21 +22,24 @@ func ListRequest(conn Connection, token string) (*http.Request, error) {
 				"downloadDir",
 				"uploadRatio",
 				"percentDone",
-				"addedDate"}}}.ToRequest()
+				"addedDate",
+			},
+		},
+	}.ToRequest()
 }
 
 type TorrentListItem struct {
-	TorrentId int					`json:"id"`
-	Name string						`json:"name"`
-	UploadSpeed float32		`json:"rateUpload"`
+	TorrentId int         `json:"id"`
+	Name string           `json:"name"`
+	UploadSpeed float32   `json:"rateUpload"`
 	DownloadSpeed float32 `json:"rateDownload"`
-	Ratio float32					`json:"uploadRatio"`
-	Eta int32							`json:"eta"`
-	SizeWhenDone int64		`json:"sizeWhenDone"`
-	LeftUntilDone int64		`json:"leftUntilDone"`
-	Status int8						`json:"status"`
-	DownloadDir string		`json:"downloadDir"`
-	AddedDate int					`json:"addedDate"`
+	Ratio float32         `json:"uploadRatio"`
+	Eta int32             `json:"eta"`
+	SizeWhenDone int64    `json:"sizeWhenDone"`
+	LeftUntilDone int64   `json:"leftUntilDone"`
+	Status int8           `json:"status"`
+	DownloadDir string    `json:"downloadDir"`
+	AddedDate int         `json:"addedDate"`
 	PercentDone *float32  `json:"percentDone"`
 }
 
@@ -45,8 +48,8 @@ type TorrentListResponseArguments struct {
 }
 
 type TorrentListResponse struct {
-	ResultValue string													`json:"result"`
-	TagValue string															`json:"tag"`
+	ResultValue string                          `json:"result"`
+	TagValue string                             `json:"tag"`
 	ArgumentsValue TorrentListResponseArguments `json:"arguments"`
 }
 

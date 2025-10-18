@@ -14,8 +14,8 @@ func AddRequest(filename string, downloadDir string, paused bool) RequestBuilder
 
 type TorrentAddedInfo struct {
 	HashString string `json:"hashString"`
-	Id int						`json:"id"`
-	Name string				`json:"name"`
+	Id int            `json:"id"`
+	Name string       `json:"name"`
 }
 
 type TorrentAddResponseArguments struct {
@@ -23,8 +23,8 @@ type TorrentAddResponseArguments struct {
 }
 
 type TorrentAddResponse struct {
-	ResultValue string												 `json:"result"`
-	TagValue string														 `json:"tag"`
+	ResultValue string                         `json:"result"`
+	TagValue string                            `json:"tag"`
 	ArgumentsValue TorrentAddResponseArguments `json:"arguments"`
 }
 

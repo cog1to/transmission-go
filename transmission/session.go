@@ -16,15 +16,15 @@ func GetSessionSettingsRequest(conn Connection, token string) (*http.Request, er
 }
 
 type SessionSettings struct {
-	UploadSpeedLimit int					 `json:"speed-limit-up"`
-	UploadSpeedLimitEnabled bool	 `json:"speed-limit-up-enabled"`
-	DownloadSpeedLimit int				 `json:"speed-limit-down"`
+	UploadSpeedLimit int           `json:"speed-limit-up"`
+	UploadSpeedLimitEnabled bool   `json:"speed-limit-up-enabled"`
+	DownloadSpeedLimit int         `json:"speed-limit-down"`
 	DownloadSpeedLimitEnabled bool `json:"speed-limit-down-enabled"`
 }
 
 type SessionSettingsResponse struct {
-	ResultValue string							`json:"result"`
-	TagValue string									`json:"tag"`
+	ResultValue string              `json:"result"`
+	TagValue string                 `json:"tag"`
 	ArgumentsValue *SessionSettings `json:"arguments"`
 }
 

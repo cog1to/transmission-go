@@ -1,8 +1,8 @@
 package transmission
 
 type GenericResponse struct {
-	ResultValue string				 `json:"result"`
-	TagValue string						 `json:"tag"`
+	ResultValue string         `json:"result"`
+	TagValue string            `json:"tag"`
 	ArgumentsValue interface{} `json:"arguments"`
 }
 
