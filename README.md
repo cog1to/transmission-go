@@ -101,6 +101,8 @@ Default install path of `usr/local/bin` can be changed by passing `INSTALL_DIR=/
 
 Feel free to use, modify, report bugs, create feature requests or pull requests.
 
+Also check out the [DEVELOPER.md](DEVELOPER.md) file for a quick intro to the project structure.
+
 ## License
 
 GPLv2
