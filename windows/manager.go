@@ -69,8 +69,8 @@ func NewWindowManager(root tui.Drawable) *WindowManager {
 }
 
 func (manager *WindowManager) AddWindow(win Window) {
-	if len(manager.windows) > 0 {
-		manager.windows[len(manager.windows) - 1].SetActive(false)
+	if len(manager.windows) > 0 && win.IsFullScreen() {
+		manager.setStatusForTopFullScreenStack(false)
 	}
 
 	manager.windows = append(manager.windows, win)
@@ -101,8 +101,8 @@ func (manager *WindowManager) RemoveWindow(win Window) {
 	}
 
 	manager.RemoveInputReader(win)
-	if len(manager.windows) > 0 {
-		manager.windows[len(manager.windows) - 1].SetActive(true)
+	if len(manager.windows) > 0 && win.IsFullScreen() {
+		manager.setStatusForTopFullScreenStack(true)
 	}
 
 	go func() {
@@ -132,12 +132,7 @@ func (manager *WindowManager) RemoveInputReader(rdr InputReader) {
 }
 
 func (manager *WindowManager) Redraw() {
-	var fullScreenIndex int = -1
-	for ind := len(manager.windows) - 1; ind >= 0; ind-- {
-		if manager.windows[ind].IsFullScreen() {
-			fullScreenIndex = ind
-		}
-	}
+	fullScreenIndex := manager.getLastFullScreenIdx()
 
 	var windows []Window
 	if fullScreenIndex > 0 {
@@ -180,7 +175,7 @@ func (manager *WindowManager) Start() {
 				manager.Resize()
 				manager.Redraw()
 			}
-			manager.DrawTop()
+			manager.Redraw()
 		case input := <-manager.input:
 			if len(manager.inputReaders) > 0 {
 				lastReader := manager.inputReaders[len(manager.inputReaders) - 1]
@@ -188,6 +183,27 @@ func (manager *WindowManager) Start() {
 			}
 		case <-manager.Exit:
 			return
+		}
+	}
+}
+
+// Helpers
+
+func (manager *WindowManager) getLastFullScreenIdx() int {
+	for ind := len(manager.windows) - 1; ind >= 0; ind-- {
+		if manager.windows[ind].IsFullScreen() {
+			return ind
+		}
+	}
+
+	return -1
+}
+
+func (manager *WindowManager) setStatusForTopFullScreenStack(status bool) {
+	lastFullScreenIdx := manager.getLastFullScreenIdx()
+	if lastFullScreenIdx >= 0 {
+		for idx := lastFullScreenIdx; idx < len(manager.windows); idx++ {
+			manager.windows[idx].SetActive(status)
 		}
 	}
 }
