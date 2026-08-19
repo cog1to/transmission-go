@@ -7,21 +7,38 @@ import (
 	"sort"
 )
 
+type SortType = int
+
+const (
+	SORT_ID_ASC SortType = iota
+	SORT_DATE_ASC
+	SORT_DATE_DESC
+	SORT_TYPE_COUNT
+)
+
 func GeneralizeTorrents(
 	items []transmission.TorrentListItem,
-	sorted bool,
+	sortType SortType,
 ) []list.Identifiable {
 	output := make([]list.Identifiable, len(items))
 	for ind, item := range items {
 		output[ind] = item
 	}
 
-	if !sorted {
+	if sortType == SORT_ID_ASC {
 		return output
 	}
 
 	sort.Slice(output, func(l, r int) bool {
-		return output[l].(transmission.TorrentListItem).AddedDate < output[r].(transmission.TorrentListItem).AddedDate
+		if sortType == SORT_DATE_ASC {
+			return output[l].
+				(transmission.TorrentListItem).
+				AddedDate > output[r].(transmission.TorrentListItem).AddedDate
+		} else {
+			return output[l].
+				(transmission.TorrentListItem).
+				AddedDate < output[r].(transmission.TorrentListItem).AddedDate
+		}
 	})
 
 	return output

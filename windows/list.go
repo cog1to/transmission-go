@@ -43,6 +43,7 @@ const (
 	INVERT_SELECT
 	OPEN
 	VERIFY
+	SORT
 	UNKNOWN
 )
 
@@ -66,6 +67,7 @@ type ListWindowState struct {
 	List list.List
 	Settings Settings
 	ConnectionEstablished bool
+	Sorting transform.SortType
 }
 
 type ListWindow struct {
@@ -175,9 +177,12 @@ func (window *ListWindow) OnInput(key tui.Key) {
 				torrents := transform.ToTorrentList(items)
 				_, isActive := transform.IdsAndNextState(torrents)
 				op := ListActiveOperation{
-						isActive,
-						ListOperation{
-							command, torrents}}
+					isActive,
+					ListOperation{
+						command,
+						torrents,
+					},
+				}
 				handleOperation(window.client, op, window.state)
 			}
 		case HELP:
@@ -265,6 +270,10 @@ func (window *ListWindow) OnInput(key tui.Key) {
 					}
 				}(downloadDir)
 			}
+		case SORT:
+			// Change sorting
+			window.state.Sorting = ((window.state.Sorting + 1) % transform.SORT_TYPE_COUNT)
+			updateList(window.client, window.state)
 		}
 
 		go func() {
@@ -303,7 +312,10 @@ func NewListWindow(
 			0,
 			[]int{},
 			0,
-			[]list.Identifiable{}}}
+			[]list.Identifiable{},
+		},
+		Sorting: transform.SORT_DATE_ASC,
+	}
 
 	// Handle list update.
 	listWorker := worker.Repeating(3, func() {
@@ -462,7 +474,7 @@ func updateList(client *transmission.Client, state *ListWindowState) {
 	list, err := client.List()
 
 	if list != nil {
-		state.List.Items = transform.GeneralizeTorrents(*list, true)
+		state.List.Items = transform.GeneralizeTorrents(*list, state.Sorting)
 	}
 
 	state.Error = err
@@ -572,6 +584,7 @@ func showListCheatsheet(parent tui.Drawable, manager *WindowManager) {
 		HelpItem{ "m", "Move selected torrent(s) to a new location" },
 		HelpItem{ "o", "Open the torrent using OS's default app" },
 		HelpItem{ "v", "Verify selected torrents" },
+		HelpItem{ "s", "Change sorting order [ID/Date asc/Date desc]" },
 	}
 
 	cheatsheet := NewCheatsheet(parent, items, manager)
@@ -619,6 +632,8 @@ func control(char tui.Key) Input {
 			return OPEN
 		case 'v':
 			return VERIFY
+		case 's':
+			return SORT
 		}
 	} else if char.EscapeSeq != nil {
 		switch *char.EscapeSeq {
