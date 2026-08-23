@@ -43,6 +43,8 @@ func NewWindowManager(root tui.Drawable) *WindowManager {
 
 	// Signal channel.
 	signal.Notify(manager.signals, syscall.SIGWINCH)
+	signal.Notify(manager.signals, syscall.SIGTERM)
+	signal.Notify(manager.signals, syscall.SIGINT)
 	signal.Notify(manager.signals, os.Interrupt)
 	go func() {
 		for {
@@ -51,6 +53,10 @@ func NewWindowManager(root tui.Drawable) *WindowManager {
 				manager.resize = true
 				manager.Draw <- true
 			} else if sig == os.Interrupt {
+				manager.Exit <- true
+			} else if sig == syscall.SIGTERM {
+				manager.Exit <- true
+			} else if sig == syscall.SIGINT {
 				manager.Exit <- true
 			}
 		}
